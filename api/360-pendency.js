@@ -86,6 +86,9 @@ async function buildCache(force = false) {
       teamName:        pick(r, 'team_name', 'teamName'),
       customerSegment: pick(r, 'customer_segment', 'customerSegment'),
       crmStatus:       pick(r, 'crm_status', 'crmStatus'),
+      assignedTeam:    pick(r, 'assigned_user_name', 'assignedTeamName', 'assigned_team'),
+      entEmail:        pick(r, 'email_id', 'poc_email', 'email'),
+      entStage:        pick(r, 'stage'),
       finalStatus:     pick(r, 'final_status', 'finalStatus', 'status_overallStatus', 'status'),
       platform:        pick(r, 'platform'),
       inputType:       pick(r, 'input_type', 'inputType'),
@@ -108,14 +111,12 @@ async function buildCache(force = false) {
     };
   });
 
-  // Pending = crm_status === 'qc_unassigned'
-  const pending = rows.filter(r =>
-    (r.crmStatus || '').trim().toLowerCase() === 'qc_unassigned'
-  );
+  // All rows from this query are already QC pending (qc_unassigned)
+  // No additional filtering needed
 
   // De-duplicate by SKU (keep one row per unique SKU)
   const seen = new Set();
-  const deduped = pending.filter(r => {
+  const deduped = rows.filter(r => {
     const key = r.sku || r.vin || JSON.stringify(r);
     if (seen.has(key)) return false;
     seen.add(key);
