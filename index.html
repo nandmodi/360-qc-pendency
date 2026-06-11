@@ -393,7 +393,12 @@ function f(){
   if(_activeInputType) rows=rows.filter(r=>(r.inputType||'').trim()===_activeInputType);
   if(_activeBkt){
     const b=BKTS.find(b=>b.k===_activeBkt);
-    if(b) rows=rows.filter(r=>{const h=r.hrsCreated;if(h==null)return false;return h>=b.min&&(b.max===9e9?true:h<b.max);});
+    if(b) rows=rows.filter(r=>{
+      const ts=r.createdAt;if(!ts)return false;
+      const d=new Date(ts);if(isNaN(d))return false;
+      const h=(Date.now()-d)/3600000;
+      return h>=0&&h>=b.min&&(b.max===9e9?true:h<b.max);
+    });
   }
   if(_activeCustomerSegment) rows=rows.filter(r=>(r.customerSegment||'').trim()===_activeCustomerSegment);
   if(_activeCrmStatus) rows=rows.filter(r=>(r.crmStatus||'').trim()===_activeCrmStatus);
@@ -436,9 +441,12 @@ function itypeChip(v){
 function renderMetrics(rows){
   const total=rows.length;
   const ents=[...new Set(rows.map(r=>r.eid||r.entName).filter(Boolean))].length;
-  const teams=[...new Set(rows.filter(r=>r.assignedTeam).map(r=>r.teamId).filter(Boolean))].length;
-  const over24=rows.filter(r=>r.hrsCreated!=null&&r.hrsCreated>24).length;
-  const avgHrs=(rows.filter(r=>r.hrsCreated!=null).reduce((s,r)=>s+r.hrsCreated,0)/(rows.filter(r=>r.hrsCreated!=null).length||1));
+  const teams=rows.filter(r=>(r.crmStatus||'').trim().toLowerCase()!=='qc_unassigned'&&(r.crmStatus||'').trim()!=='').length;
+  const _now=Date.now();
+  const getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
+  const over24=rows.filter(r=>{ const h=getAge(r); return h!=null&&h>24; }).length;
+  const ageRows=rows.map(getAge).filter(h=>h!=null);
+  const avgHrs=ageRows.reduce((s,h)=>s+h,0)/(ageRows.length||1);
   const items=[
     {icon:'🔄',val:total,  label:'QC Unassigned', sub:'Total VINs'},
     {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
@@ -457,7 +465,15 @@ function renderMetrics(rows){
 
 // ── Age buckets ────────────────────────────────────────────────────
 function renderHours(rows){
-  const obj=mkB();rows.forEach(r=>addB(obj,r.hrsCreated));
+  const now=Date.now();
+  // Recalculate age from createdAt at render time (always fresh)
+  const getAge=r=>{
+    const ts=r.createdAt;
+    if(!ts)return null;
+    const d=new Date(ts);if(isNaN(d))return null;
+    const h=(now-d)/3600000;return h>=0?h:null;
+  };
+  const obj=mkB();rows.forEach(r=>addB(obj,getAge(r)));
   const mx=obj.total||1;
   const el=document.getElementById('hcards');el.innerHTML='';
   BKTS.forEach(b=>{
@@ -680,8 +696,11 @@ function openDrawer(title,rows){
         <button class="dl-item" onclick="dlDrawer('json');closeDl('drw-dl-dd')"><span class="dl-item-icon">{ }</span>JSON</button>
       </div>
     </div>`;
-  const over24=rows.filter(r=>r.hrsCreated!=null&&r.hrsCreated>24).length;
-  const avgHrs=rows.filter(r=>r.hrsCreated!=null).reduce((s,r)=>s+r.hrsCreated,0)/(rows.filter(r=>r.hrsCreated!=null).length||1);
+  const _now2=Date.now();
+  const getAge2=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now2-d)/3600000;return h>=0?h:null;};
+  const over24=rows.filter(r=>getAge2(r)!=null&&getAge2(r)>24).length;
+  const ageVals=rows.map(getAge2).filter(h=>h!=null);
+  const avgHrs=ageVals.reduce((s,h)=>s+h,0)/(ageVals.length||1);
   document.getElementById('drw-body').innerHTML=`
     <div class="drw-stats">
       <div class="ds"><div class="ds-val">${rows.length}</div><div class="ds-label">SKUs</div></div>
@@ -738,8 +757,10 @@ function renderDrawerRows(){
   tbody.innerHTML=rows.map(r=>{
     const skuVal=r.sku||'',vinVal=r.vin||'',entVal=r.entName||r.eid||'',teamVal=r.teamName||'';
     const consoleUrl=(r.eid&&r.teamId&&r.sku)?`https://console.spyne.ai/inventory/v2/listings/${r.sku}?enterprise_id=${r.eid}&team_id=${r.teamId}`:'';
-    const ageStr=r.hrsCreated!=null?r.hrsCreated.toFixed(1)+'h':'—';
-    const ageColor=r.hrsCreated!=null&&r.hrsCreated>12?'var(--red)':r.hrsCreated!=null&&r.hrsCreated>6?'var(--amber)':'inherit';
+    const _rNow=Date.now();
+    const freshAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+    const ageStr=(h=>{return h!=null?h.toFixed(1)+'h':'—';})(freshAge(r));
+    const ageColor=(h=>{return h!=null&&h>12?'var(--red)':h!=null&&h>6?'var(--amber)':'inherit';})(freshAge(r));
     return`<tr>
       <td><div class="vin-cell">
         ${r.thumbnail?`<img class="thumb-img" src="${r.thumbnail}" loading="lazy" onerror="this.style.display='none'">`:''}
@@ -953,7 +974,7 @@ function handleUpload(evt){
         imgCount:parseInt(pk(r,'image_count'))||0,
         overallScore:pk(r,'overall_score','overallScore'),
         vinScore:pk(r,'vin_score','vinScore'),
-        hrsCreated:hoursAgo(pk(r,'created_on','vinCreation','created_at')),
+        createdAt:pk(r,'created_on','vinCreation','created_at'),
       };
     });
     // All rows from this query are already QC pending
@@ -1018,7 +1039,7 @@ async function loadData(){
       imgCount:r.imgCount||0,
       overallScore:r.overallScore||'',
       vinScore:r.vinScore||'',
-      hrsCreated:r.hrsCreated!=null?r.hrsCreated:_ha(r.createdAt),
+      createdAt:r.createdAt||'',
     }));
     document.getElementById('loading').style.display='none';
     dashEl.style.display='block';
