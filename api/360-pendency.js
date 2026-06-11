@@ -1,9 +1,10 @@
 // api/360-pendency.js
 // Vercel serverless handler for 360 QC Pendency Dashboard
-// Data source: Master Vin level Data - 360 Metabase question
+// Data source: 360 QC Pendency Metabase question
+// Pending = crm_status === 'qc_unassigned'
 
 const METABASE_CSV_URL =
-  'https://metabase.spyne.ai/public/question/7f9326d8-9eb9-4cc2-bded-efb1aac967db.csv';
+  'https://metabase.spyne.ai/public/question/e7c25d62-7cce-40d3-a1e9-a0f7b167ae96.csv';
 
 let _cache = null;
 let _lastFetch = 0;
@@ -107,14 +108,14 @@ async function buildCache(force = false) {
     };
   });
 
-  // Only keep "Under Review" for pendency
-  const underReview = rows.filter(r =>
-    (r.finalStatus || '').trim().toLowerCase() === 'under review'
+  // Pending = crm_status === 'qc_unassigned'
+  const pending = rows.filter(r =>
+    (r.crmStatus || '').trim().toLowerCase() === 'qc_unassigned'
   );
 
   // De-duplicate by SKU (keep one row per unique SKU)
   const seen = new Set();
-  const deduped = underReview.filter(r => {
+  const deduped = pending.filter(r => {
     const key = r.sku || r.vin || JSON.stringify(r);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -144,7 +145,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         total: data.total,
         sample: data.rows[0],
-        uniqueFinalStatus: [...new Set(data.rows.map(r => r.finalStatus).filter(Boolean))],
+        uniqueCrmStatus: [...new Set(data.rows.map(r => r.crmStatus).filter(Boolean))],
         uniqueCustomerSegment: [...new Set(data.rows.map(r => r.customerSegment).filter(Boolean))],
         uniquePlatform: [...new Set(data.rows.map(r => r.platform).filter(Boolean))],
         uniqueInputType: [...new Set(data.rows.map(r => r.inputType).filter(Boolean))],
