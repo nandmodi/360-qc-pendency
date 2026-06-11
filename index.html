@@ -196,7 +196,7 @@ td:last-child{padding-right:16px;text-align:right}
     <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40'%3E%3Crect width='120' height='40' rx='8' fill='%232dd4cf'/%3E%3Ctext x='60' y='26' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='800' font-size='14'%3ESPYNE%3C/text%3E%3C/svg%3E" alt="Spyne" class="hdr-logo" style="height:36px"/>
     <div>
       <div style="font-size:16px;font-weight:700;letter-spacing:-.3px">360 QC Pendency</div>
-      <div style="font-size:9px;font-family:var(--f-mono);color:var(--t3);letter-spacing:1.5px;margin-top:1px">UNDER REVIEW · DASHBOARD</div>
+      <div style="font-size:9px;font-family:var(--f-mono);color:var(--t3);letter-spacing:1.5px;margin-top:1px">QC UNASSIGNED · DASHBOARD</div>
     </div>
   </div>
   <div class="hdr-center">
@@ -234,7 +234,7 @@ td:last-child{padding-right:16px;text-align:right}
   <!-- Overview -->
   <div class="sec">
     <div class="sec-hd">
-      <div class="sec-label"><span class="sec-title">Overview</span><span class="tag tag-teal" id="overview-tag">UNDER REVIEW</span></div>
+      <div class="sec-label"><span class="sec-title">Overview</span><span class="tag tag-teal" id="overview-tag">QC UNASSIGNED</span></div>
       <div style="display:flex;gap:8px;align-items:center">
         <button id="reset-btn" onclick="resetAllFilters()" style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;border:1px solid var(--rim2);background:var(--card2);color:var(--t2);font-size:11px;font-family:var(--f-mono);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--rim2)';this.style.color='var(--t2)'">✕ Reset Filters</button>
       </div>
@@ -379,7 +379,7 @@ function addB(o,h){
 }
 
 // ── Filter ─────────────────────────────────────────────────────────
-// All rows are already "Under Review" (API filters before sending)
+// All rows are qc_unassigned (API filters before sending)
 function f(){
   let rows=[..._rows];
   if(_activeInputType) rows=rows.filter(r=>(r.inputType||'').trim()===_activeInputType);
@@ -392,7 +392,7 @@ function f(){
   return rows;
 }
 function lbl(){
-  const parts=['Under Review'];
+  const parts=['QC Unassigned'];
   if(_activeInputType) parts.push(_activeInputType);
   if(_activeBkt){const b=BKTS.find(b=>b.k===_activeBkt);if(b)parts.push(b.l);}
   if(_activeCustomerSegment) parts.push(_activeCustomerSegment);
@@ -432,7 +432,7 @@ function renderMetrics(rows){
   const over24=rows.filter(r=>r.hrsCreated!=null&&r.hrsCreated>24).length;
   const avgHrs=(rows.filter(r=>r.hrsCreated!=null).reduce((s,r)=>s+r.hrsCreated,0)/(rows.filter(r=>r.hrsCreated!=null).length||1));
   const items=[
-    {icon:'🔄',val:total,  label:'Under Review', sub:lbl()},
+    {icon:'🔄',val:total,  label:'QC Unassigned', sub:lbl()},
     {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
     {icon:'👥',val:teams,  label:'Teams',       sub:'Assigned'},
     {icon:'⏰',val:over24, label:'Over 24h',    sub:'Waiting'},
@@ -443,7 +443,7 @@ function renderMetrics(rows){
      <div class="metric-val" ${i.val>9999&&!i.isStr?'style="font-size:24px"':''}>${typeof i.val==='number'?i.val.toLocaleString():i.val}</div>
      <div class="metric-label">${i.label}</div>
      <div class="metric-sub">${i.sub}</div></div>`).join('');
-  document.getElementById('overview-tag').textContent=`UNDER REVIEW · ${total.toLocaleString()} SKUs`;
+  document.getElementById('overview-tag').textContent=`QC UNASSIGNED · ${total.toLocaleString()} SKUs`;
   updateResetBtn();
 }
 
@@ -644,7 +644,7 @@ let _drawerSortCol='hrsCreated', _drawerSortDir='desc';
 function openDrawer(title,rows){
   _drawerRows=rows;
   document.getElementById('drw-title').textContent=title;
-  document.getElementById('drw-subtitle').textContent=`${rows.length} SKUs · Under Review`;
+  document.getElementById('drw-subtitle').textContent=`${rows.length} SKUs · QC Unassigned`;
   document.getElementById('drw-dl').innerHTML=`
     <div class="dl-dropdown" id="drw-dl-dd">
       <button class="dl-trigger" onclick="toggleDl('drw-dl-dd')">
@@ -767,7 +767,7 @@ function rerender(){
   _tblData['dl-team']=tData;mkDl('dl-team',`360-teams-under-review`);
   document.getElementById('team-tag').textContent=`${tData.length} TEAMS · ${rows.length} SKUs`;
   renderTeamTbl(tData);
-  document.getElementById('st-text').textContent=`${rows.length.toLocaleString()} Under Review`;
+  document.getElementById('st-text').textContent=`${rows.length.toLocaleString()} QC Unassigned`;
   updateResetBtn();
 }
 
@@ -925,8 +925,8 @@ function handleUpload(evt){
         hrsCreated:hoursAgo(pk(r,'created_on','vinCreation','created_at')),
       };
     });
-    // Filter Under Review
-    const rows=allRows.filter(r=>(r.finalStatus||'').trim().toLowerCase()==='under review');
+    // Filter Pending = qc_unassigned
+    const rows=allRows.filter(r=>(r.crmStatus||'').trim().toLowerCase()==='qc_unassigned');
     // Dedup by SKU
     const seen=new Set();
     const deduped=rows.filter(r=>{const key=r.sku||r.vin||JSON.stringify(r);if(seen.has(key))return false;seen.add(key);return true;});
@@ -961,7 +961,7 @@ async function loadData(){
     if(j.error)throw new Error(j.error);
     if(!j.rows?.length)throw new Error('0 rows');
     if(j.lastSynced)document.getElementById('sy').textContent='Synced '+new Date(j.lastSynced).toLocaleTimeString();
-    // Rows come pre-filtered as Under Review from the API
+    // Rows come pre-filtered as qc_unassigned from the API
     // Recalculate hrsCreated client-side so it's relative to now
     const _now=Date.now();
     const _ha=ts=>{if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
@@ -975,7 +975,7 @@ async function loadData(){
       teamName:r.teamName||'',
       customerSegment:(r.customerSegment||'').trim(),
       crmStatus:(r.crmStatus||'').trim(),
-      finalStatus:r.finalStatus||'Under Review',
+      finalStatus:r.finalStatus||'',
       inputType:r.inputType||'',
       platform:r.platform||'',
       make:r.make||'',model:r.model||'',year:r.year||'',
