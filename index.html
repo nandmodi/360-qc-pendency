@@ -436,11 +436,11 @@ function itypeChip(v){
 function renderMetrics(rows){
   const total=rows.length;
   const ents=[...new Set(rows.map(r=>r.eid||r.entName).filter(Boolean))].length;
-  const teams=[...new Set(rows.map(r=>r.teamId).filter(Boolean))].length;
+  const teams=[...new Set(rows.filter(r=>r.assignedTeam).map(r=>r.teamId).filter(Boolean))].length;
   const over24=rows.filter(r=>r.hrsCreated!=null&&r.hrsCreated>24).length;
   const avgHrs=(rows.filter(r=>r.hrsCreated!=null).reduce((s,r)=>s+r.hrsCreated,0)/(rows.filter(r=>r.hrsCreated!=null).length||1));
   const items=[
-    {icon:'🔄',val:total,  label:'QC Unassigned', sub:lbl()},
+    {icon:'🔄',val:total,  label:'QC Unassigned', sub:'Total VINs'},
     {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
     {icon:'👥',val:teams,  label:'Teams',       sub:'Assigned'},
     {icon:'⏰',val:over24, label:'Over 24h',    sub:'Waiting'},
@@ -451,7 +451,7 @@ function renderMetrics(rows){
      <div class="metric-val" ${i.val>9999&&!i.isStr?'style="font-size:24px"':''}>${typeof i.val==='number'?i.val.toLocaleString():i.val}</div>
      <div class="metric-label">${i.label}</div>
      <div class="metric-sub">${i.sub}</div></div>`).join('');
-  document.getElementById('overview-tag').textContent=`QC UNASSIGNED · ${total.toLocaleString()} SKUs`;
+  document.getElementById('overview-tag').textContent=`QC UNASSIGNED · ${total.toLocaleString()} VINs`;
   updateResetBtn();
 }
 
