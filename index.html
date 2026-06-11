@@ -181,6 +181,9 @@ td:last-child{padding-right:16px;text-align:right}
 @keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
 /* 360 badge on spin icon */
 .spin-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;font-size:9px;font-family:var(--f-mono);background:rgba(45,212,207,.1);border:1px solid rgba(45,212,207,.2);color:var(--teal);letter-spacing:.5px}
+.ent-stage{font-size:9px;font-family:var(--f-mono);padding:1px 6px;border-radius:3px}
+.stage-live{background:rgba(0,229,160,.1);color:var(--green)}
+.stage-onboard{background:rgba(245,166,35,.1);color:var(--amber)}
 /* input type chip */
 .itype-chip{display:inline-block;font-family:var(--f-mono);font-size:8px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;letter-spacing:.3px}
 .itype-video{background:rgba(180,143,255,.15);border:1px solid rgba(180,143,255,.4);color:var(--purple)}
@@ -293,8 +296,11 @@ td:last-child{padding-right:16px;text-align:right}
     <div class="tbl-shell"><div class="tbl-scroll"><table>
       <thead><tr>
         <th style="min-width:200px"># Enterprise</th>
-        <th style="min-width:120px">Enterprise ID</th>
-        <th style="min-width:140px">Customer Segment</th>
+        <th style="min-width:100px">Enterprise ID</th>
+        <th style="min-width:70px">Stage</th>
+        <th style="min-width:120px">Segment</th>
+        <th style="min-width:180px">POC Email</th>
+        <th style="min-width:150px">Assigned Team</th>
         <th>0–2h</th><th>2–4h</th><th>4–6h</th><th>6–12h</th><th>12+h</th>
         <th>Total</th>
       </tr></thead>
@@ -324,8 +330,10 @@ td:last-child{padding-right:16px;text-align:right}
     <div class="tbl-shell"><div class="tbl-scroll"><table>
       <thead><tr>
         <th style="min-width:200px"># Team</th>
-        <th style="min-width:120px">Team ID</th>
-        <th style="min-width:140px">Customer Segment</th>
+        <th style="min-width:100px">Team ID</th>
+        <th style="min-width:120px">Segment</th>
+        <th style="min-width:180px">POC Email</th>
+        <th style="min-width:150px">Assigned Team</th>
         <th>0–2h</th><th>2–4h</th><th>4–6h</th><th>6–12h</th><th>12+h</th>
         <th>Total</th>
       </tr></thead>
@@ -547,12 +555,12 @@ function sortTableData(data,col,dir){
 function renderEntTbl(data){
   const tbodyId='ent-tbody';
   const tbody=document.getElementById(tbodyId);tbody.innerHTML='';
-  if(!data.length){tbody.innerHTML='<tr><td colspan="9" class="no-data">NO DATA</td></tr>';return;}
+  if(!data.length){tbody.innerHTML='<tr><td colspan="12" class="no-data">NO DATA</td></tr>';return;}
   const ss=_sortState[tbodyId]||{col:'total',dir:'desc'};
   const sorted=sortTableData(data,ss.col,ss.dir);
   const thead=tbody.closest('table')?.querySelector('thead');
   if(thead){
-    const colKeys=['name','id','customerSegment',...BKTS.map(b=>b.k),'total'];
+    const colKeys=['name','id','stage','customerSegment','email','assignedTeam',...BKTS.map(b=>b.k),'total'];
     thead.querySelectorAll('th').forEach((th,i)=>{
       th.classList.remove('sort-asc','sort-desc');
       const ck=colKeys[i];if(!ck)return;
@@ -563,6 +571,10 @@ function renderEntTbl(data){
   sorted.forEach((row,i)=>{
     const rnkClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
     const customerSegments=[...new Set(row._rows.map(r=>r.customerSegment).filter(Boolean))];
+    const pocEmail=row.email||row._rows[0]?.entEmail||'';
+    const stage=row.stage||row._rows[0]?.entStage||'';
+    const stageCls=stage.toLowerCase().includes('live')?'stage-live':stage.toLowerCase().includes('onboard')?'stage-onboard':'';
+    const assignedTeams=[...new Set(row._rows.map(r=>r.assignedTeam).filter(Boolean))];
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">
@@ -574,7 +586,12 @@ function renderEntTbl(data){
         <span class="id-chip" title="${row.eid||''}">${row.eid||'—'}</span>
         ${cbBtn(row.eid,'Copy enterprise ID')}
       </div></td>
+      <td>${stage?`<span class="ent-stage ${stageCls}">${stage}</span>`:'<span style="color:var(--t3)">—</span>'}</td>
       <td><span style="font-size:10px;color:var(--t2)">${customerSegments.join(', ')||'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        ${pocEmail?`<span class="poc-chip" title="${pocEmail}">${pocEmail}</span>${cbBtn(pocEmail,'Copy POC email')}`:'<span style="color:var(--t3);font-size:10px">—</span>'}
+      </div></td>
+      <td><span style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${assignedTeams.join(', ')||'—'}</span></td>
       ${BKTS.map(b=>{const n=row[b.k]||0,p=row.total>0?n/row.total*100:0;
         return`<td><div class="mini-progress"><span style="font-family:var(--f-mono);font-size:10px;min-width:20px">${n}</span>
           <div class="mp-track"><div class="mp-fill" style="width:${p}%;background:${b.c}"></div></div></div></td>`;
@@ -585,7 +602,7 @@ function renderEntTbl(data){
   });
   const tot=mkB();data.forEach(r=>{BKTS.forEach(b=>{tot[b.k]=(tot[b.k]||0)+(r[b.k]||0);});tot.total+=r.total||0;});
   const tf=document.createElement('tr');tf.className='tbl-foot';tf.style.cursor='default';
-  tf.innerHTML=`<td><strong>Subtotal</strong></td><td>—</td><td>—</td>
+  tf.innerHTML=`<td><strong>Subtotal</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
     ${BKTS.map(b=>`<td style="font-family:var(--f-mono);font-size:10px">${(tot[b.k]||0).toLocaleString()}</td>`).join('')}
     <td><span class="pill-chip">${tot.total.toLocaleString()}</span></td>`;
   tbody.appendChild(tf);
@@ -595,12 +612,12 @@ function renderEntTbl(data){
 function renderTeamTbl(data){
   const tbodyId='team-tbody';
   const tbody=document.getElementById(tbodyId);tbody.innerHTML='';
-  if(!data.length){tbody.innerHTML='<tr><td colspan="9" class="no-data">NO DATA</td></tr>';return;}
+  if(!data.length){tbody.innerHTML='<tr><td colspan="11" class="no-data">NO DATA</td></tr>';return;}
   const ss=_sortState[tbodyId]||{col:'total',dir:'desc'};
   const sorted=sortTableData(data,ss.col,ss.dir);
   const thead=tbody.closest('table')?.querySelector('thead');
   if(thead){
-    const colKeys=['name','id','customerSegment',...BKTS.map(b=>b.k),'total'];
+    const colKeys=['name','id','customerSegment','email','assignedTeam',...BKTS.map(b=>b.k),'total'];
     thead.querySelectorAll('th').forEach((th,i)=>{
       th.classList.remove('sort-asc','sort-desc');
       const ck=colKeys[i];if(!ck)return;
@@ -611,6 +628,8 @@ function renderTeamTbl(data){
   sorted.forEach((row,i)=>{
     const rnkClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
     const customerSegments=[...new Set(row._rows.map(r=>r.customerSegment).filter(Boolean))];
+    const pocEmail=row.email||row._rows[0]?.entEmail||'';
+    const assignedTeams=[...new Set(row._rows.map(r=>r.assignedTeam).filter(Boolean))];
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">
@@ -623,6 +642,10 @@ function renderTeamTbl(data){
         ${cbBtn(row.teamId,'Copy team ID')}
       </div></td>
       <td><span style="font-size:10px;color:var(--t2)">${customerSegments.join(', ')||'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        ${pocEmail?`<span class="poc-chip" title="${pocEmail}">${pocEmail}</span>${cbBtn(pocEmail,'Copy POC email')}`:'<span style="color:var(--t3);font-size:10px">—</span>'}
+      </div></td>
+      <td><span style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${assignedTeams.join(', ')||'—'}</span></td>
       ${BKTS.map(b=>{const n=row[b.k]||0,p=row.total>0?n/row.total*100:0;
         return`<td><div class="mini-progress"><span style="font-family:var(--f-mono);font-size:10px;min-width:20px">${n}</span>
           <div class="mp-track"><div class="mp-fill" style="width:${p}%;background:${b.c}"></div></div></div></td>`;
@@ -633,7 +656,7 @@ function renderTeamTbl(data){
   });
   const tot=mkB();data.forEach(r=>{BKTS.forEach(b=>{tot[b.k]=(tot[b.k]||0)+(r[b.k]||0);});tot.total+=r.total||0;});
   const tf=document.createElement('tr');tf.className='tbl-foot';tf.style.cursor='default';
-  tf.innerHTML=`<td><strong>Subtotal</strong></td><td>—</td><td>—</td>
+  tf.innerHTML=`<td><strong>Subtotal</strong></td><td>—</td><td>—</td><td>—</td><td>—</td>
     ${BKTS.map(b=>`<td style="font-family:var(--f-mono);font-size:10px">${(tot[b.k]||0).toLocaleString()}</td>`).join('')}
     <td><span class="pill-chip">${tot.total.toLocaleString()}</span></td>`;
   tbody.appendChild(tf);
@@ -674,6 +697,7 @@ function openDrawer(title,rows){
             <th onclick="sortDrawer('vin')">VIN</th>
             <th onclick="sortDrawer('entName')">Enterprise</th>
             <th onclick="sortDrawer('teamName')">Team</th>
+            <th onclick="sortDrawer('assignedTeam')">Assigned Team</th>
             <th onclick="sortDrawer('inputType')">Input</th>
             <th onclick="sortDrawer('crmStatus')">CRM Status</th>
             <th onclick="sortDrawer('customerSegment')">Segment</th>
@@ -723,8 +747,9 @@ function renderDrawerRows(){
         ${cbBtn(skuVal,'Copy SKU')}
       </div></td>
       <td style="font-family:var(--f-mono);font-size:9px">${vinVal||'—'} ${cbBtn(vinVal,'Copy VIN')}</td>
-      <td style="font-size:11px">${entVal||'—'} ${cbBtn(entVal,'Copy enterprise')}</td>
+      <td style="font-size:10px">${entVal||'—'} ${cbBtn(entVal,'Copy enterprise')}</td>
       <td style="font-size:10px">${teamVal||'—'} ${cbBtn(teamVal,'Copy team')}</td>
+      <td style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${r.assignedTeam||'—'}</td>
       <td>${itypeChip(r.inputType)}</td>
       <td style="font-size:9px;color:var(--t2)">${r.crmStatus||'—'}</td>
       <td style="font-size:10px;color:var(--t2)">${r.customerSegment||'—'}</td>
@@ -749,8 +774,10 @@ function rerender(){
   const eMap={};
   rows.forEach(r=>{
     const e=r.entName||r.eid||'Unknown';
-    if(!eMap[e])eMap[e]={name:e,eid:r.eid||'',customerSegment:r.customerSegment||'—',...mkB(),_rows:[]};
+    if(!eMap[e])eMap[e]={name:e,eid:r.eid||'',customerSegment:r.customerSegment||'—',email:r.entEmail||'',stage:r.entStage||'',...mkB(),_rows:[]};
     addB(eMap[e],r.hrsCreated);eMap[e]._rows.push(r);
+    if(!eMap[e].email&&r.entEmail)eMap[e].email=r.entEmail;
+    if(!eMap[e].stage&&r.entStage)eMap[e].stage=r.entStage;
   });
   const eData=Object.values(eMap).sort((a,b)=>b.total-a.total);
   _tblData['dl-ent']=eData;mkDl('dl-ent',`360-enterprises-under-review`);
@@ -760,8 +787,9 @@ function rerender(){
   const tMap={};
   rows.forEach(r=>{
     const t=r.teamName||r.teamId||'Unknown';
-    if(!tMap[t])tMap[t]={name:t,teamId:r.teamId||'',customerSegment:r.customerSegment||'—',...mkB(),_rows:[]};
+    if(!tMap[t])tMap[t]={name:t,teamId:r.teamId||'',customerSegment:r.customerSegment||'—',email:r.entEmail||'',...mkB(),_rows:[]};
     addB(tMap[t],r.hrsCreated);tMap[t]._rows.push(r);
+    if(!tMap[t].email&&r.entEmail)tMap[t].email=r.entEmail;
   });
   const tData=Object.values(tMap).sort((a,b)=>b.total-a.total);
   _tblData['dl-team']=tData;mkDl('dl-team',`360-teams-under-review`);
@@ -776,8 +804,8 @@ function anyFilterActive(){return!!(_activeInputType||_activeBkt||_activeCustome
 function updateResetBtn(){const b=document.getElementById('reset-btn');if(b)b.style.display=anyFilterActive()?'inline-flex':'none';}
 
 // ── Download helpers ───────────────────────────────────────────────
-const DL_KEYS=['sku','vin','entName','teamName','customerSegment','crmStatus','inputType','make','model','year','hrsCreated','overallScore','vinScore'];
-const DL_LABELS=['SKU','VIN','Enterprise','Team','Customer Segment','CRM Status','Input Type','Make','Model','Year','Age(hrs)','Overall Score','VIN Score'];
+const DL_KEYS=['sku','vin','entName','teamName','assignedTeam','customerSegment','crmStatus','inputType','make','model','year','hrsCreated','overallScore','vinScore'];
+const DL_LABELS=['SKU','VIN','Enterprise','Team','Assigned Team','Customer Segment','CRM Status','Input Type','Make','Model','Year','Age(hrs)','Overall Score','VIN Score'];
 
 function dl(blob,n){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
 
@@ -913,6 +941,9 @@ function handleUpload(evt){
         teamName:pk(r,'team_name','teamName'),
         customerSegment:pk(r,'customer_segment','customerSegment'),
         crmStatus:pk(r,'crm_status','crmStatus'),
+        assignedTeam:pk(r,'assigned_user_name','assignedTeamName','assigned_user'),
+        entEmail:pk(r,'email_id','poc_email','email'),
+        entStage:pk(r,'stage'),
         finalStatus:pk(r,'final_status','finalStatus','status_overallStatus','status'),
         inputType:pk(r,'input_type','inputType'),
         platform:pk(r,'platform'),
@@ -925,8 +956,8 @@ function handleUpload(evt){
         hrsCreated:hoursAgo(pk(r,'created_on','vinCreation','created_at')),
       };
     });
-    // Filter Pending = qc_unassigned
-    const rows=allRows.filter(r=>(r.crmStatus||'').trim().toLowerCase()==='qc_unassigned');
+    // All rows from this query are already QC pending
+    const rows=allRows;
     // Dedup by SKU
     const seen=new Set();
     const deduped=rows.filter(r=>{const key=r.sku||r.vin||JSON.stringify(r);if(seen.has(key))return false;seen.add(key);return true;});
@@ -975,6 +1006,9 @@ async function loadData(){
       teamName:r.teamName||'',
       customerSegment:(r.customerSegment||'').trim(),
       crmStatus:(r.crmStatus||'').trim(),
+      assignedTeam:r.assignedTeam||'',
+      entEmail:r.entEmail||'',
+      entStage:r.entStage||'',
       finalStatus:r.finalStatus||'',
       inputType:r.inputType||'',
       platform:r.platform||'',
