@@ -131,7 +131,8 @@ async function buildCache(force = false) {
 // ── Handler ────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-store');
+  // Serve cached response instantly, revalidate in background every 5 min
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
