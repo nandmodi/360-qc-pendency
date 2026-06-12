@@ -452,7 +452,6 @@ function renderMetrics(rows){
     {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
     {icon:'👥',val:teams,  label:'Teams',       sub:'Assigned'},
     {icon:'⏰',val:over24, label:'Over 24h',    sub:'Waiting'},
-    {icon:'📊',val:isFinite(avgHrs)?avgHrs.toFixed(1)+'h':'—',label:'Avg Age',sub:'Created At',isStr:true},
   ];
   document.getElementById('metrics').innerHTML=items.map(i=>
     `<div class="metric"><div class="metric-icon">${i.icon}</div>
