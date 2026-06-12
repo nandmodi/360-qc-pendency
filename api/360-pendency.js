@@ -70,44 +70,49 @@ async function buildCache(force = false) {
 
   const rawRows = parseCSV(await resp.text());
 
+  // Parse Metabase date format: "12 Jun, 2026, 11:53" → Date
+  function parseMetaDate(s) {
+    if (!s) return null;
+    // Already ISO
+    if (s.includes('T') || s.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(s);
+    // "12 Jun, 2026, 11:53" → "12 Jun 2026 11:53"
+    const cleaned = s.replace(/,/g, '').trim();
+    const d = new Date(cleaned);
+    return isNaN(d) ? null : d;
+  }
+
   // Map to normalised shape
   const rows = rawRows.map(r => {
-    const eid      = pick(r, 'enterpriseId', 'enterprise_id');
-    const created  = pick(r, 'created_on', 'vinCreation', 'created_at');
-    const received = pick(r, 'receivedAt', 'received_at', 'first_qc_done');
+    const createdRaw = pick(r, 'createdAt', 'created_at', 'created_on', 'vinCreation');
+    const createdDate = parseMetaDate(createdRaw);
+    const hrsAgo = createdDate ? (now - createdDate.getTime()) / 3_600_000 : null;
 
     return {
-      sku:             pick(r, 'sku', 'spin_sku_id', 'sku_id'),
-      spinId:          pick(r, 'spin_id', 'spinId'),
-      vin:             pick(r, 'vin_name', 'vinName', 'vin'),
-      eid,
-      entName:         pick(r, 'enterprise_name', 'enterpriseName') || eid,
-      teamId:          pick(r, 'team_id', 'teamId'),
+      sku:             pick(r, 'spin_sku_id', 'sku', 'sku_id'),
+      spinId:          pick(r, 'ss.spin_id', 'spin_id', 'spinId'),
+      vin:             pick(r, 'vinName', 'vin_name', 'vin'),
+      eid:             pick(r, 'enterpriseId', 'enterprise_id'),
+      entName:         pick(r, 'enterprise_name', 'enterpriseName') || pick(r, 'enterpriseId'),
+      teamId:          pick(r, 'teamId', 'team_id'),
       teamName:        pick(r, 'team_name', 'teamName'),
       customerSegment: pick(r, 'customer_segment', 'customerSegment'),
       crmStatus:       pick(r, 'crm_status', 'crmStatus'),
       assignedTeam:    pick(r, 'assigned_user_name', 'assignedTeamName', 'assigned_team'),
       entEmail:        pick(r, 'email_id', 'poc_email', 'email'),
       entStage:        pick(r, 'stage'),
-      finalStatus:     pick(r, 'final_status', 'finalStatus', 'status_overallStatus', 'status'),
-      platform:        pick(r, 'platform'),
+      finalStatus:     pick(r, 'final_status', 'finalStatus', 'status'),
       inputType:       pick(r, 'input_type', 'inputType'),
-      issuesBySeverity:pick(r, 'issues_by_severity', 'issuesBySeverity'),
-      failureReason:   pick(r, 'failure_reason', 'failureReason', 'vdp_validation_failure_reason'),
-      manualEditing:   pick(r, 'manual_editing', 'manualEditing'),
+      platform:        pick(r, 'platform'),
       make:            pick(r, 'make'),
       model:           pick(r, 'model'),
       year:            pick(r, 'year'),
       thumbnail:       pick(r, 'thumbnail_url', 'thumbnail'),
       vdpUrl:          pick(r, 'vdp_url', 'vdpUrl'),
-      imgCount:        parseInt(pick(r, 'image_count', 'imgCount')) || 0,
+      imgCount:        parseInt(pick(r, 'image_count')) || 0,
       overallScore:    pick(r, 'overall_score', 'overallScore'),
       vinScore:        pick(r, 'vin_score', 'vinScore'),
-      totalQcTime:     pick(r, 'total_qc_time', 'totalQcTime'),
-      createdAt:       created,
-      receivedAt:      received,
-      hrsCreated:      hoursAgo(created, now),
-      hrsRecv:         hoursAgo(received, now),
+      createdAt:       createdDate ? createdDate.toISOString() : createdRaw,
+      hrsCreated:      hrsAgo,
     };
   });
 
@@ -144,13 +149,20 @@ export default async function handler(req, res) {
 
     // Debug mode
     if (req.query.debug === '1') {
+      const sampleRaw = await (async () => {
+        const resp2 = await fetch(METABASE_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const text = await resp2.text();
+        const lines = text.trim().split(/\r?\n/);
+        return { headers: parseLine(lines[0]), sampleRow: lines[1] };
+      })();
       return res.status(200).json({
         total: data.total,
-        sample: data.rows[0],
+        exactHeaders: sampleRaw.headers,
+        sampleRawRow: sampleRaw.sampleRow,
+        sampleMapped: data.rows[0],
         uniqueCrmStatus: [...new Set(data.rows.map(r => r.crmStatus).filter(Boolean))],
         uniqueCustomerSegment: [...new Set(data.rows.map(r => r.customerSegment).filter(Boolean))],
-        uniquePlatform: [...new Set(data.rows.map(r => r.platform).filter(Boolean))],
-        uniqueInputType: [...new Set(data.rows.map(r => r.inputType).filter(Boolean))],
+        createdAtSample: data.rows.slice(0,5).map(r => r.createdAt),
       });
     }
 
