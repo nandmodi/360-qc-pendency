@@ -954,24 +954,30 @@ function handleUpload(evt){
     if(parsed.length<2){alert('CSV appears empty');return;}
     const hdrs=parsed[0].map(h=>h.replace(/^"|"$/g,'').trim());
     const pk=(r,...ns)=>{for(const n of ns){const v=r[n];if(v?.trim())return v.trim();}return '';};
-    const now=Date.now();
-    const hoursAgo=ts=>{if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(now-d)/3600000;return h>=0?h:null;};
+    function parseMetaDate(s){
+      if(!s)return null;
+      if(s.includes('T')||s.match(/^\d{4}-\d{2}-\d{2}/))return new Date(s);
+      const cleaned=s.replace(/,/g,'').trim();
+      const d=new Date(cleaned);return isNaN(d)?null:d;
+    }
     const allRows=parsed.slice(1).filter(vals=>vals.some(v=>v.trim())).map(vals=>{
       const r={};hdrs.forEach((h,i)=>r[h]=vals[i]??'');
+      const createdRaw=pk(r,'createdAt','created_at','created_on','vinCreation');
+      const createdDate=parseMetaDate(createdRaw);
       return{
-        sku:pk(r,'sku','spin_sku_id','sku_id'),
-        spinId:pk(r,'spin_id','spinId'),
-        vin:pk(r,'vin_name','vinName','vin'),
+        sku:pk(r,'spin_sku_id','sku','sku_id'),
+        spinId:pk(r,'ss.spin_id','spin_id','spinId'),
+        vin:pk(r,'vinName','vin_name','vin'),
         eid:pk(r,'enterpriseId','enterprise_id'),
-        entName:pk(r,'enterprise_name','enterpriseName'),
-        teamId:pk(r,'team_id','teamId'),
+        entName:pk(r,'enterprise_name','enterpriseName')||pk(r,'enterpriseId'),
+        teamId:pk(r,'teamId','team_id'),
         teamName:pk(r,'team_name','teamName'),
         customerSegment:pk(r,'customer_segment','customerSegment'),
         crmStatus:pk(r,'crm_status','crmStatus'),
-        assignedTeam:pk(r,'assigned_user_name','assignedTeamName','assigned_user'),
+        assignedTeam:pk(r,'assigned_user_name','assignedTeamName','assigned_team'),
         entEmail:pk(r,'email_id','poc_email','email'),
         entStage:pk(r,'stage'),
-        finalStatus:pk(r,'final_status','finalStatus','status_overallStatus','status'),
+        finalStatus:pk(r,'final_status','finalStatus','status'),
         inputType:pk(r,'input_type','inputType'),
         platform:pk(r,'platform'),
         make:pk(r,'make'),model:pk(r,'model'),year:pk(r,'year'),
@@ -980,7 +986,7 @@ function handleUpload(evt){
         imgCount:parseInt(pk(r,'image_count'))||0,
         overallScore:pk(r,'overall_score','overallScore'),
         vinScore:pk(r,'vin_score','vinScore'),
-        createdAt:pk(r,'created_on','vinCreation','created_at'),
+        createdAt:createdDate?createdDate.toISOString():createdRaw,
       };
     });
     // All rows from this query are already QC pending
