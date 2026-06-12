@@ -917,7 +917,13 @@ function updateRing(){
   label.textContent=String(Math.floor(ts/60)).padStart(2,'0')+':'+String(ts%60).padStart(2,'0');
   ring.style.stroke=remaining<60000?'var(--red)':'var(--teal)';
 }
-function manualRefresh(){clearInterval(_refreshTimer);loadData();}
+function manualRefresh(){
+  clearInterval(_refreshTimer);
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  _refreshStart = Date.now();
+  document.getElementById('st-text').textContent = 'Refreshing…';
+  fetchFresh(true);
+}
 
 // ── CSV upload fallback ────────────────────────────────────────────
 function parseCSVLine(line){
@@ -994,61 +1000,110 @@ function handleUpload(evt){
   reader.readAsText(file);
 }
 
+// ── Local cache helpers ────────────────────────────────────────────
+const LS_KEY = '360-pend-cache';
+const LS_TTL = 10 * 60 * 1000; // 10 min — show stale data up to this age
+
+function saveToCache(rows, lastSynced) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ rows, lastSynced, savedAt: Date.now() }));
+  } catch(e) {} // ignore quota errors
+}
+function loadFromCache() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.rows?.length) return null;
+    return parsed;
+  } catch(e) { return null; }
+}
+function normaliseRows(rawRows) {
+  return rawRows.map(r=>({
+    sku:r.sku||'',
+    spinId:r.spinId||'',
+    vin:r.vin||'',
+    eid:r.eid||'',
+    entName:r.entName||r.eid||'',
+    teamId:r.teamId||'',
+    teamName:r.teamName||'',
+    customerSegment:(r.customerSegment||'').trim(),
+    crmStatus:(r.crmStatus||'').trim(),
+    assignedTeam:r.assignedTeam||'',
+    entEmail:r.entEmail||'',
+    entStage:r.entStage||'',
+    finalStatus:r.finalStatus||'',
+    inputType:r.inputType||'',
+    platform:r.platform||'',
+    make:r.make||'',model:r.model||'',year:r.year||'',
+    thumbnail:r.thumbnail||'',
+    vdpUrl:r.vdpUrl||'',
+    imgCount:r.imgCount||0,
+    overallScore:r.overallScore||'',
+    vinScore:r.vinScore||'',
+    createdAt:r.createdAt||'',
+  }));
+}
+function showData(rows, lastSynced, isStale) {
+  const dashEl = document.getElementById('dash');
+  _rows = normaliseRows(rows);
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('uf').style.display = 'none';
+  dashEl.style.display = 'block';
+  if (lastSynced) {
+    const label = isStale ? '⚡ Cached ' : 'Synced ';
+    document.getElementById('sy').textContent = label + new Date(lastSynced).toLocaleTimeString();
+  }
+  renderTypeCards(); rerender();
+}
+
 // ── Load data ──────────────────────────────────────────────────────
 async function loadData(){
-  const dashEl=document.getElementById('dash');
-  if(dashEl.style.display!=='none'){
-    const el=document.getElementById('metrics');
-    if(el)el.innerHTML=Array(5).fill('<div class="metric skel" style="height:100px"></div>').join('');
-  } else {
-    document.getElementById('loading').style.display='flex';
-    dashEl.style.display='none';
-  }
-  document.getElementById('uf').style.display='none';
-  document.getElementById('st-text').textContent='Loading…';
-  try{
-    const r=await fetch(API);
-    if(!r.ok)throw new Error(`HTTP ${r.status}`);
-    const j=await r.json();
-    if(j.error)throw new Error(j.error);
-    if(!j.rows?.length)throw new Error('0 rows');
-    if(j.lastSynced)document.getElementById('sy').textContent='Synced '+new Date(j.lastSynced).toLocaleTimeString();
-    // Rows come pre-filtered as qc_unassigned from the API
-    // Recalculate hrsCreated client-side so it's relative to now
-    const _now=Date.now();
-    const _ha=ts=>{if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
-    _rows=j.rows.map(r=>({
-      sku:r.sku||'',
-      spinId:r.spinId||'',
-      vin:r.vin||'',
-      eid:r.eid||'',
-      entName:r.entName||r.eid||'',
-      teamId:r.teamId||'',
-      teamName:r.teamName||'',
-      customerSegment:(r.customerSegment||'').trim(),
-      crmStatus:(r.crmStatus||'').trim(),
-      assignedTeam:r.assignedTeam||'',
-      entEmail:r.entEmail||'',
-      entStage:r.entStage||'',
-      finalStatus:r.finalStatus||'',
-      inputType:r.inputType||'',
-      platform:r.platform||'',
-      make:r.make||'',model:r.model||'',year:r.year||'',
-      thumbnail:r.thumbnail||'',
-      vdpUrl:r.vdpUrl||'',
-      imgCount:r.imgCount||0,
-      overallScore:r.overallScore||'',
-      vinScore:r.vinScore||'',
-      createdAt:r.createdAt||'',
-    }));
-    document.getElementById('loading').style.display='none';
-    dashEl.style.display='block';
-    renderTypeCards();rerender();
+  const dashEl = document.getElementById('dash');
+  const cached = loadFromCache();
+
+  // Show cached data INSTANTLY if available
+  if (cached) {
+    showData(cached.rows, cached.lastSynced, true);
+    document.getElementById('st-text').textContent = '⚡ From cache';
     startAutoRefresh();
-  }catch(err){
-    document.getElementById('loading').style.display='none';
-    document.getElementById('uf').style.display='block';
-    document.getElementById('uf-msg').textContent=`Fetch failed: ${err.message}. Upload a CSV manually below.`;
+    // Fetch fresh in background — no loading spinner
+    fetchFresh(false);
+    return;
+  }
+
+  // No cache — show loading spinner and fetch
+  document.getElementById('loading').style.display = 'flex';
+  dashEl.style.display = 'none';
+  document.getElementById('uf').style.display = 'none';
+  document.getElementById('st-text').textContent = 'Loading…';
+  fetchFresh(true);
+}
+
+async function fetchFresh(showSpinner) {
+  const dashEl = document.getElementById('dash');
+  try {
+    const r = await fetch(API);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    if (!j.rows?.length) throw new Error('0 rows');
+    saveToCache(j.rows, j.lastSynced);
+    showData(j.rows, j.lastSynced, false);
+    document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
+    if (showSpinner) startAutoRefresh();
+  } catch(err) {
+    if (showSpinner) {
+      // Only show error if we have nothing to show
+      if (!_rows.length) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('uf').style.display = 'block';
+        document.getElementById('uf-msg').textContent = `Fetch failed: ${err.message}. Upload a CSV manually below.`;
+      } else {
+        // Already showing stale data — just update status
+        document.getElementById('st-text').textContent = '⚠ Fetch failed — showing cached data';
+      }
+    }
   }
 }
 
