@@ -799,7 +799,7 @@ function rerender(){
     if(!eMap[e].email&&r.entEmail)eMap[e].email=r.entEmail;
     if(!eMap[e].stage&&r.entStage)eMap[e].stage=r.entStage;
   });
-  const eData=Object.values(eMap).sort((a,b)=>b.total-a.total);
+  const eData=Object.values(eMap).filter(e=>e.total>0).sort((a,b)=>b.total-a.total);
   _tblData['dl-ent']=eData;mkDl('dl-ent',`360-enterprises-under-review`);
   document.getElementById('ent-tag').textContent=`${eData.length} ENTERPRISES · ${rows.length} SKUs`;
   renderEntTbl(eData);
@@ -811,7 +811,7 @@ function rerender(){
     addB(tMap[t],r.hrsCreated);tMap[t]._rows.push(r);
     if(!tMap[t].email&&r.entEmail)tMap[t].email=r.entEmail;
   });
-  const tData=Object.values(tMap).sort((a,b)=>b.total-a.total);
+  const tData=Object.values(tMap).filter(t=>t.total>0).sort((a,b)=>b.total-a.total);
   _tblData['dl-team']=tData;mkDl('dl-team',`360-teams-under-review`);
   document.getElementById('team-tag').textContent=`${tData.length} TEAMS · ${rows.length} SKUs`;
   renderTeamTbl(tData);
