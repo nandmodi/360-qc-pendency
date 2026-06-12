@@ -790,12 +790,15 @@ function renderDrawerRows(){
 function rerender(){
   const rows=f(),l=lbl();
   renderMetrics(rows);renderHours(rows);renderCharts(rows);renderTypeCards();
+  const _rNow=Date.now();
+  const _getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+
   // Enterprise
   const eMap={};
   rows.forEach(r=>{
     const e=r.entName||r.eid||'Unknown';
     if(!eMap[e])eMap[e]={name:e,eid:r.eid||'',customerSegment:r.customerSegment||'—',email:r.entEmail||'',stage:r.entStage||'',...mkB(),_rows:[]};
-    addB(eMap[e],r.hrsCreated);eMap[e]._rows.push(r);
+    addB(eMap[e],_getAge(r));eMap[e]._rows.push(r);
     if(!eMap[e].email&&r.entEmail)eMap[e].email=r.entEmail;
     if(!eMap[e].stage&&r.entStage)eMap[e].stage=r.entStage;
   });
@@ -808,7 +811,7 @@ function rerender(){
   rows.forEach(r=>{
     const t=r.teamName||r.teamId||'Unknown';
     if(!tMap[t])tMap[t]={name:t,teamId:r.teamId||'',customerSegment:r.customerSegment||'—',email:r.entEmail||'',...mkB(),_rows:[]};
-    addB(tMap[t],r.hrsCreated);tMap[t]._rows.push(r);
+    addB(tMap[t],_getAge(r));tMap[t]._rows.push(r);
     if(!tMap[t].email&&r.entEmail)tMap[t].email=r.entEmail;
   });
   const tData=Object.values(tMap).filter(t=>t.total>0).sort((a,b)=>b.total-a.total);
@@ -1007,19 +1010,20 @@ function handleUpload(evt){
 
 // ── Local cache helpers ────────────────────────────────────────────
 const LS_KEY = '360-pend-cache';
-const LS_TTL = 10 * 60 * 1000; // 10 min — show stale data up to this age
+const LS_VER = 'v3';
+const LS_TTL = 10 * 60 * 1000;
 
 function saveToCache(rows, lastSynced) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ rows, lastSynced, savedAt: Date.now() }));
-  } catch(e) {} // ignore quota errors
+    localStorage.setItem(LS_KEY, JSON.stringify({ rows, lastSynced, savedAt: Date.now(), ver: LS_VER }));
+  } catch(e) {}
 }
 function loadFromCache() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed?.rows?.length) return null;
+    if (!parsed?.rows?.length || parsed.ver !== LS_VER) return null;
     return parsed;
   } catch(e) { return null; }
 }
