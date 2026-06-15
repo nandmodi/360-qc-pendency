@@ -196,7 +196,7 @@ td:last-child{padding-right:16px;text-align:right}
 <div class="page">
 <header class="hdr">
   <div class="hdr-brand">
-    <img src="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/spyne_logo.webp" alt="Spyne" class="hdr-logo" style="height:36px"/>
+    <img id="logo-img" src="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/Spyne_Logo_White.png" alt="Spyne" class="hdr-logo" style="height:36px"/>
     <div>
       <div style="font-size:16px;font-weight:700;letter-spacing:-.3px">360 QC Pendency</div>
       <div style="font-size:9px;font-family:var(--f-mono);color:var(--t3);letter-spacing:1.5px;margin-top:1px">QC UNASSIGNED · DASHBOARD</div>
@@ -895,13 +895,17 @@ document.addEventListener('click',e=>{
 });
 
 // ── Theme ──────────────────────────────────────────────────────────
+const LOGO_DARK='https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/Spyne_Logo_White.png';
+const LOGO_LIGHT='https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/spyne_logo.webp';
+function setLogo(theme){const el=document.getElementById('logo-img');if(el)el.src=theme==='dark'?LOGO_DARK:LOGO_LIGHT;}
 function toggleTheme(){
   const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
   document.documentElement.setAttribute('data-theme',n);
   document.getElementById('tbtn').textContent=n==='dark'?'🌙':'☀️';
+  setLogo(n);
   localStorage.setItem('360-pend-theme',n);
 }
-(()=>{const s=localStorage.getItem('360-pend-theme');if(s){document.documentElement.setAttribute('data-theme',s);document.getElementById('tbtn').textContent=s==='dark'?'🌙':'☀️';}})();
+(()=>{const s=localStorage.getItem('360-pend-theme');if(s){document.documentElement.setAttribute('data-theme',s);document.getElementById('tbtn').textContent=s==='dark'?'🌙':'☀️';setLogo(s);}else{setLogo('dark');}})();
 
 // ── Auto-refresh ───────────────────────────────────────────────────
 const AUTO_MS=15*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
