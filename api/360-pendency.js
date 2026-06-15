@@ -98,7 +98,7 @@ async function buildCache(force = false) {
       customerSegment: pick(r, 'customer_segment', 'customerSegment'),
       crmStatus:       pick(r, 'crm_status', 'crmStatus'),
       assignedTeam:    pick(r, 'assigned_user_name', 'assignedTeamName', 'assigned_team'),
-      entEmail:        pick(r, 'email_id', 'poc_email', 'email'),
+      entEmail:        pick(r, 'CS') || pick(r, 'OB'),
       entStage:        pick(r, 'stage'),
       finalStatus:     pick(r, 'final_status', 'finalStatus', 'status'),
       inputType:       pick(r, 'input_type', 'inputType'),
