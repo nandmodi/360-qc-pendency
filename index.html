@@ -988,7 +988,7 @@ function handleUpload(evt){
         customerSegment:pk(r,'customer_segment','customerSegment'),
         crmStatus:pk(r,'crm_status','crmStatus'),
         assignedTeam:pk(r,'assigned_user_name','assignedTeamName','assigned_team'),
-        entEmail:pk(r,'email_id','poc_email','email'),
+        entEmail:pk(r,'CS')||pk(r,'OB'),
         entStage:pk(r,'stage'),
         finalStatus:pk(r,'final_status','finalStatus','status'),
         inputType:pk(r,'input_type','inputType'),
