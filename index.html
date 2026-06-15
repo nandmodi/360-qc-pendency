@@ -908,7 +908,15 @@ const AUTO_MS=15*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
 const RING_CIRC=87.96;
 function startAutoRefresh(){
   clearInterval(_refreshTimer);_refreshStart=Date.now();updateRing();
-  _refreshTimer=setInterval(()=>{updateRing();if(Date.now()-_refreshStart>=AUTO_MS)loadData();},1000);
+  _refreshTimer=setInterval(()=>{
+    updateRing();
+    if(Date.now()-_refreshStart>=AUTO_MS){
+      // Time to refresh — clear cache and fetch fresh
+      try{localStorage.removeItem(LS_KEY);}catch(e){}
+      fetchFresh(false);
+      _refreshStart=Date.now(); // reset timer
+    }
+  },1000);
 }
 function updateRing(){
   const elapsed=Date.now()-_refreshStart,progress=Math.min(elapsed/AUTO_MS,1),remaining=Math.max(AUTO_MS-elapsed,0);
@@ -921,10 +929,9 @@ function updateRing(){
 }
 function manualRefresh(){
   clearInterval(_refreshTimer);
-  try { localStorage.removeItem(LS_KEY); } catch(e) {}
-  _refreshStart = Date.now();
-  document.getElementById('st-text').textContent = 'Refreshing…';
-  fetchFresh(true);
+  try{localStorage.removeItem(LS_KEY);}catch(e){}
+  document.getElementById('st-text').textContent='Refreshing…';
+  fetchFresh(true).then(()=>startAutoRefresh());
 }
 
 // ── CSV upload fallback ────────────────────────────────────────────
@@ -1083,10 +1090,11 @@ async function loadData(){
 
   // No cache — show loading spinner and fetch
   document.getElementById('loading').style.display = 'flex';
-  dashEl.style.display = 'none';
+  document.getElementById('dash').style.display = 'none';
   document.getElementById('uf').style.display = 'none';
   document.getElementById('st-text').textContent = 'Loading…';
-  fetchFresh(true);
+  await fetchFresh(true);
+  startAutoRefresh();
 }
 
 async function fetchFresh(showSpinner) {
@@ -1100,18 +1108,13 @@ async function fetchFresh(showSpinner) {
     saveToCache(j.rows, j.lastSynced);
     showData(j.rows, j.lastSynced, false);
     document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
-    if (showSpinner) startAutoRefresh();
   } catch(err) {
-    if (showSpinner) {
-      // Only show error if we have nothing to show
-      if (!_rows.length) {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('uf').style.display = 'block';
-        document.getElementById('uf-msg').textContent = `Fetch failed: ${err.message}. Upload a CSV manually below.`;
-      } else {
-        // Already showing stale data — just update status
-        document.getElementById('st-text').textContent = '⚠ Fetch failed — showing cached data';
-      }
+    if (!_rows.length) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('uf').style.display = 'block';
+      document.getElementById('uf-msg').textContent = `Fetch failed: ${err.message}. Upload a CSV manually below.`;
+    } else {
+      document.getElementById('st-text').textContent = '⚠ Fetch failed — showing cached data';
     }
   }
 }
