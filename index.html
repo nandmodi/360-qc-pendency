@@ -231,7 +231,7 @@ td:last-child{padding-right:16px;text-align:right}
   </div>
 </div>
 
-<div id="loading"><div class="load-ring"></div><div class="load-label">FETCHING 360 QC PENDING DATA</div></div>
+<div id="loading"><div class="load-ring"></div><div class="load-label" id="load-label">FETCHING 360 QC DATA</div><div id="load-steps" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:10px;font-family:var(--f-mono);color:var(--t3);text-align:center"></div></div>
 
 <div id="dash" style="display:none">
   <!-- Overview -->
@@ -1065,51 +1065,64 @@ function normaliseRows(rawRows) {
   }));
 }
 function showData(rows, lastSynced, isStale) {
-  const dashEl = document.getElementById('dash');
   _rows = normaliseRows(rows);
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('uf').style.display = 'none';
-  dashEl.style.display = 'block';
-  if (lastSynced) {
-    const label = isStale ? '⚡ Cached ' : 'Synced ';
-    document.getElementById('sy').textContent = label + new Date(lastSynced).toLocaleTimeString();
-  }
-  renderTypeCards(); rerender();
+  renderTypeCards();
+  rerender();
+  // Hide loader and show dash only after render is complete
+  requestAnimationFrame(() => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('uf').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+    if (lastSynced) {
+      const label = isStale ? '⚡ Cached ' : 'Synced ';
+      document.getElementById('sy').textContent = label + new Date(lastSynced).toLocaleTimeString();
+    }
+  });
 }
 
 // ── Load data ──────────────────────────────────────────────────────
 async function loadData(){
-  const dashEl = document.getElementById('dash');
-  const cached = loadFromCache();
-
-  // Show cached data INSTANTLY if available
-  if (cached) {
-    showData(cached.rows, cached.lastSynced, true);
-    document.getElementById('st-text').textContent = '⚡ From cache';
-    startAutoRefresh();
-    // Fetch fresh in background — no loading spinner
-    fetchFresh(false);
-    return;
-  }
-
-  // No cache — show loading spinner and fetch
+  // Always show loader first
   document.getElementById('loading').style.display = 'flex';
   document.getElementById('dash').style.display = 'none';
   document.getElementById('uf').style.display = 'none';
   document.getElementById('st-text').textContent = 'Loading…';
+
+  const cached = loadFromCache();
+  if (cached) {
+    // Use cache to render but still show loader until done
+    showData(cached.rows, cached.lastSynced, true);
+    document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
+    startAutoRefresh();
+    // Silently fetch fresh in background
+    fetchFresh(false);
+    return;
+  }
+
+  // No cache — fetch fresh
   await fetchFresh(true);
   startAutoRefresh();
 }
 
+function setLoadStep(msg){
+  const el=document.getElementById('load-steps');
+  if(el){const d=document.createElement('div');d.textContent='✓ '+msg;el.appendChild(d);}
+}
 async function fetchFresh(showSpinner) {
-  const dashEl = document.getElementById('dash');
   try {
+    if(showSpinner){
+      document.getElementById('load-steps').innerHTML='';
+      document.getElementById('load-label').textContent='FETCHING 360 QC DATA';
+    }
     const r = await fetch(API);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setLoadStep('Data received');
     const j = await r.json();
     if (j.error) throw new Error(j.error);
     if (!j.rows?.length) throw new Error('0 rows');
+    setLoadStep(`${j.rows.length} VINs loaded`);
     saveToCache(j.rows, j.lastSynced);
+    setLoadStep('Processing…');
     showData(j.rows, j.lastSynced, false);
     document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
   } catch(err) {
