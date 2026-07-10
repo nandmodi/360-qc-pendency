@@ -441,29 +441,24 @@ function lbl(){
 
 function copyCell(val, el) {
   if (!val || val === '—') return;
-  const doFlash = (ok) => {
-    el.style.background = ok ? 'rgba(0,200,150,.2)' : 'rgba(240,81,110,.15)';
-    el.style.transition = 'background .2s';
-    setTimeout(() => { el.style.background = ''; el.style.transition = ''; }, 800);
+  const flash = (ok) => {
+    el.style.background = ok ? 'rgba(0,200,150,.25)' : 'rgba(240,81,110,.2)';
+    setTimeout(() => { el.style.background = ''; }, 700);
   };
-  // Try clipboard API first
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(val).then(() => doFlash(true)).catch(() => {
-      // Fallback
-      const ta = document.createElement('textarea');
-      ta.value = val; ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
-      document.body.appendChild(ta); ta.focus(); ta.select();
-      try { document.execCommand('copy'); doFlash(true); } catch(e) { doFlash(false); }
-      document.body.removeChild(ta);
-    });
-  } else {
-    // Fallback for non-secure contexts
+  // execCommand works reliably on direct user click events
+  try {
     const ta = document.createElement('textarea');
-    ta.value = val; ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
-    document.body.appendChild(ta); ta.focus(); ta.select();
-    try { document.execCommand('copy'); doFlash(true); } catch(e) { doFlash(false); }
+    ta.value = val;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    const ok = document.execCommand('copy');
     document.body.removeChild(ta);
-  }
+    if (ok) { flash(true); return; }
+  } catch(e) {}
+  // Fallback: clipboard API
+  navigator.clipboard?.writeText(val).then(() => flash(true)).catch(() => flash(false));
 }
 
 
