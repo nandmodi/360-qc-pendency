@@ -1387,15 +1387,19 @@ loadData();
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
-    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:12px;padding:16px 20px">
-      <div style="font-size:10px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px;margin-bottom:6px">BELOW 6H · WITHIN SLA</div>
-      <div style="font-size:32px;font-weight:800;color:var(--green);letter-spacing:-1.5px" id="vw-below-count">0</div>
-      <div style="font-size:11px;color:var(--green);margin-top:2px;opacity:.7">VINs on track</div>
+    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px">BELOW 6H · WITHIN SLA</div>
+        <div style="font-size:22px;font-weight:800;color:var(--green);letter-spacing:-1px;line-height:1.2" id="vw-below-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--green);opacity:.7">VINs on track</div>
     </div>
-    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:12px;padding:16px 20px">
-      <div style="font-size:10px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px;margin-bottom:6px">ABOVE 6H · SLA BREACHED</div>
-      <div style="font-size:32px;font-weight:800;color:var(--red);letter-spacing:-1.5px" id="vw-above-count">0</div>
-      <div style="font-size:11px;color:var(--red);margin-top:2px;opacity:.7">VINs breached</div>
+    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px">ABOVE 6H · SLA BREACHED</div>
+        <div style="font-size:22px;font-weight:800;color:var(--red);letter-spacing:-1px;line-height:1.2" id="vw-above-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--red);opacity:.7">VINs breached</div>
     </div>
   </div>
 
