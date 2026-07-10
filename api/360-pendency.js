@@ -82,8 +82,8 @@ async function buildCache(force = false) {
                   inputType:       pick(r, 'input_type', 'inputType'),
                   createdAt:       createdDate ? createdDate.toISOString() : createdRaw,
           };
-    });
-    _cache = { rows, total: rows.length, lastSynced: new Date(now).toISOString() };
+    }).filter(r => r.crmStatus === 'qc_unassigned');
+            _cache = { rows, total: rows.length, lastSynced: new Date(now).toISOString() };
     _lastFetch = now;
     return _cache;
 }
