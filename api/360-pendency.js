@@ -1,103 +1,1499 @@
-// api/360-pendency.js
-// Vercel serverless handler for 360 QC Pendency Dashboard
-// Data source: https://metabase.spyne.ai/public/question/777eeac8-7d6f-49f9-96d4-499cdea1b891
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>360 QC Pendency · Spyne Ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--f-display:'Inter',sans-serif;--f-mono:'JetBrains Mono',monospace;}
+[data-theme="dark"]{--bg:#1a1a1a;--panel:#1a1a1a;--card:#252525;--card2:#2e2e2e;--rim:#333333;--rim2:#404040;--t1:#ffffff;--t2:#cccccc;--t3:#888888;--accent:#5c7cfa;--ag:rgba(92,124,250,.12);--ag2:rgba(92,124,250,.06);--red:#f0516e;--amber:#f5a623;--green:#00c896;--purple:#b48fff;--teal:#2dd4cf;--pink:#f472b6;--glow:0 0 0 1px rgba(92,124,250,.3),0 6px 24px rgba(0,0,0,.4);--sh:0 1px 2px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.3);--sh2:0 2px 6px rgba(0,0,0,.6),0 8px 24px rgba(0,0,0,.4);}
+[data-theme="light"]{--bg:#f4f5fa;--panel:#eef0f8;--card:#ffffff;--card2:#f7f8fd;--rim:#dde1f0;--rim2:#c8ceea;--t1:#090c1a;--t2:#3d4568;--t3:#9097be;--accent:#3a5cf0;--ag:rgba(58,92,240,.1);--ag2:rgba(58,92,240,.05);--red:#d92f4e;--amber:#c07a00;--green:#00996d;--purple:#7c3aed;--teal:#0891b2;--pink:#db2777;--glow:0 0 0 1px rgba(58,92,240,.3),0 6px 24px rgba(58,92,240,.12);--sh:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.06);--sh2:0 2px 8px rgba(0,0,0,.1),0 12px 32px rgba(0,0,0,.08);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;font-size:14px;transition:background .25s,color .25s}
+button{font-family:'Inter',sans-serif;cursor:pointer;border:none;background:none}
+.mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;}
+a{color:inherit;text-decoration:none}
+.page{max-width:1540px;margin:0 auto;padding:0 28px 100px;position:relative;z-index:1}
+.hdr-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--rim);box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:8px}
+.hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;padding:10px 28px;max-width:1540px;margin:0 auto;}
+.hdr-brand{display:flex;align-items:center;gap:12px}
+.hdr-logo{height:54px;width:auto;flex-shrink:0;object-fit:contain;}
+.hdr-center{display:flex;justify-content:center}
+.live-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:var(--card);border:1px solid var(--rim);border-radius:100px;font-size:11px;font-family:var(--f-mono);color:var(--t2)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 6px var(--teal);animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.hdr-actions{display:flex;align-items:center;gap:8px}
+.sync-time{font-size:11px;font-family:var(--f-mono);color:var(--t2)}
+.icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--rim);background:var(--card);color:var(--t2);display:grid;place-items:center;font-size:14px;transition:all .15s}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--ag2)}
+.refresh-btn{display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:8px;background:var(--teal);color:#fff;font-size:12px;font-weight:600;transition:all .15s}
+.refresh-btn:hover{opacity:.85;transform:translateY(-1px)}
+.refresh-btn svg{transition:transform .3s}
+.refresh-btn:hover svg{transform:rotate(180deg)}
+#loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:20px}
+.load-ring{width:48px;height:48px;border-radius:50%;border:2px solid var(--rim);border-top-color:var(--teal);animation:spin .6s linear infinite;box-shadow:0 0 20px rgba(45,212,207,.2)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-label{font-size:11px;font-family:var(--f-mono);color:var(--t3);letter-spacing:1px}
+.sec{margin-bottom:36px}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.sec-label{display:flex;align-items:center;gap:10px}
+.sec-title{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.tag{display:inline-block;font-size:10px;font-family:var(--f-mono);padding:3px 9px;border-radius:4px;letter-spacing:.8px;text-transform:uppercase}
+.tag-teal{background:rgba(45,212,207,.1);border:1px solid rgba(45,212,207,.25);color:var(--teal)}
+.tag-red{background:rgba(240,81,110,.1);border:1px solid rgba(240,81,110,.25);color:var(--red)}
+.dl-dropdown{position:relative;display:inline-block}
+.dl-trigger{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;background:var(--card2);border:1px solid var(--rim);color:var(--t2);font-size:11px;font-family:var(--f-mono);font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:.3px;white-space:nowrap}
+.dl-trigger:hover{border-color:var(--teal);color:var(--teal);background:rgba(45,212,207,.06)}
+.dl-trigger svg{transition:transform .2s}
+.dl-dropdown.open .dl-trigger svg:last-child{transform:rotate(180deg)}
+.dl-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid var(--rim2);border-radius:10px;padding:4px;min-width:130px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transform:translateY(-6px) scale(.97);pointer-events:none;transition:all .15s cubic-bezier(.4,0,.2,1)}
+.dl-dropdown.open .dl-menu{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.dl-item{display:flex;align-items:center;gap:10px;width:100%;padding:7px 12px;border-radius:7px;font-size:11px;font-family:var(--f-mono);color:var(--t2);cursor:pointer;transition:background .12s;text-align:left;white-space:nowrap}
+.dl-item:hover{background:var(--card2);color:var(--t1)}
+.dl-item-icon{font-size:13px;width:16px;text-align:center}
+.metric-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.metric{background:var(--card);border:1px solid var(--rim);border-radius:16px;padding:18px 20px;position:relative;overflow:hidden;box-shadow:var(--sh);transition:transform .18s,box-shadow .18s}
+.metric:hover{transform:translateY(-2px);box-shadow:var(--sh2)}
+.metric-icon{font-size:20px;margin-bottom:8px;line-height:1}
+.metric-val{font-size:32px;font-weight:800;letter-spacing:-1.5px;line-height:1;font-variant-numeric:tabular-nums}
+.metric-label{font-size:11px;font-family:var(--f-mono);color:var(--t2);text-transform:uppercase;letter-spacing:.8px;margin-top:6px}
+.metric-sub{font-size:12px;color:var(--t2);margin-top:3px}
+.hour-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.hcard{background:var(--card);border:1px solid var(--rim);border-radius:16px;padding:20px 18px;position:relative;overflow:hidden;box-shadow:var(--sh);transition:all .2s;cursor:pointer;user-select:none}
+.hcard:hover{transform:translateY(-2px);box-shadow:var(--sh2);border-color:var(--hc,var(--teal))}
+.hcard.active{border-color:var(--hc,var(--teal));border-width:2px;background:var(--ag2);box-shadow:0 0 0 1px var(--hc,var(--teal)),0 4px 16px rgba(0,0,0,.3)}
+.hcard.active .hcard-n{color:var(--hc,var(--teal))}
+.hcard-bg{position:absolute;bottom:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,var(--hc,var(--teal)) 0%,transparent 70%);opacity:.12;pointer-events:none}
+.hcard-range{font-size:11px;font-family:var(--f-mono);color:var(--t2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;font-weight:600}
+.hcard-n{font-size:36px;font-weight:800;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums;color:var(--hc,var(--t1))}
+.hcard-pct{font-size:12px;font-family:var(--f-mono);color:var(--t2);margin-top:6px}
+.hcard-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--rim)}
+.hcard-bar-fill{height:100%;width:0%;background:var(--hc,var(--teal));transition:width 1s cubic-bezier(.4,0,.2,1)}
+.filter-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.fcard{background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px 16px;cursor:pointer;user-select:none;transition:all .18s;box-shadow:var(--sh);position:relative;overflow:hidden}
+.fcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fc,var(--teal));border-radius:11px 0 0 11px}
+.fcard:hover{transform:translateY(-2px);box-shadow:var(--sh2);border-color:var(--fc,var(--teal))}
+.fcard.active{border-color:var(--fc,var(--teal));background:var(--ag2);box-shadow:0 0 0 1px var(--fc,var(--teal)),0 4px 16px rgba(0,0,0,.2)}
+.fcard.active .fc-val{color:var(--fc,var(--teal))}
+.fc-name{font-size:10px;font-family:var(--f-mono);color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;padding-left:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-val{font-size:24px;font-weight:800;letter-spacing:-1px;padding-left:6px;font-variant-numeric:tabular-nums}
+.fc-sub{font-size:11px;color:var(--t2);padding-left:6px;margin-top:3px}
+.chart-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chart-panel{background:var(--card);border:1px solid var(--rim);border-radius:16px;padding:20px 22px;box-shadow:var(--sh)}
+.chart-panel-title{font-size:14px;font-weight:700;margin-bottom:4px;letter-spacing:-.2px}
+.chart-panel-sub{font-size:11px;font-family:var(--f-mono);color:var(--t2);margin-bottom:16px;letter-spacing:.3px}
+.bar-list{display:flex;flex-direction:column;gap:12px}
+.bar-item{display:grid;grid-template-columns:minmax(120px,30%) 1fr 56px;align-items:center;gap:10px;padding:3px 6px;border-radius:6px;transition:background .15s;user-select:none}
+.bar-item:hover{background:var(--card2)}
+.bar-item-active{background:rgba(45,212,207,.06) !important;outline:1px solid var(--teal)}
+.bar-item-active .bar-name{color:var(--teal)}
+.bar-name{font-size:12px;color:var(--t2);white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+.bar-track{height:6px;background:var(--rim);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(.34,1.56,.64,1)}
+.bar-count{font-size:12px;font-family:var(--f-mono);color:var(--t2);text-align:right}
+.tbl-shell{background:var(--card);border:1px solid var(--rim);border-radius:16px;overflow:hidden;box-shadow:var(--sh)}
+.tbl-scroll{overflow-y:auto;max-height:440px}
+.tbl-scroll::-webkit-scrollbar{width:3px}
+.tbl-scroll::-webkit-scrollbar-thumb{background:var(--rim2);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead{position:sticky;top:0;z-index:3;background:var(--card2)}
+thead tr{background:var(--card2);border-bottom:1px solid var(--rim2)}
+th{padding:10px 12px;text-align:left;font-family:var(--f-mono);font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s}
+th:hover{color:var(--t1)}
+th.sort-asc::after{content:' ↑';color:var(--teal)}
+th.sort-desc::after{content:' ↓';color:var(--teal)}
+th:first-child{padding-left:16px}
+th:last-child{padding-right:16px;text-align:right}
+tbody tr{border-bottom:1px solid var(--rim);cursor:pointer;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--card2)}
+td{padding:9px 12px;color:var(--t2);vertical-align:middle}
+td:first-child{padding-left:16px;color:var(--t1);font-weight:500}
+td:last-child{padding-right:16px;text-align:right}
+.rnk{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-family:var(--f-mono);font-size:8px;background:var(--card2);border:1px solid var(--rim);color:var(--t3);margin-right:6px;flex-shrink:0}
+.rnk.gold{background:rgba(245,166,35,.15);border-color:rgba(245,166,35,.3);color:var(--amber)}
+.rnk.silver{background:rgba(176,176,176,.12);border-color:rgba(176,176,176,.25);color:#aaa}
+.rnk.bronze{background:rgba(205,127,50,.12);border-color:rgba(205,127,50,.25);color:#cd7f32}
+.pill-chip{display:inline-block;padding:2px 8px;border-radius:100px;font-family:var(--f-mono);font-size:9px;background:rgba(45,212,207,.1);border:1px solid rgba(45,212,207,.2);color:var(--teal);letter-spacing:.3px}
+.mini-progress{display:flex;align-items:center;gap:6px;min-width:80px}
+.mp-track{flex:1;height:3px;background:var(--rim);border-radius:2px;overflow:hidden}
+.mp-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.tbl-foot td{background:var(--card2);font-weight:600;color:var(--t1);cursor:default;border-top:1px solid var(--rim)}
+.id-chip{display:inline-block;font-family:var(--f-mono);font-size:8px;color:var(--t3);background:var(--card2);border:1px solid var(--rim);border-radius:3px;padding:1px 5px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.poc-chip{font-size:9px;font-family:var(--f-mono);color:var(--teal);background:rgba(45,212,207,.08);border:1px solid rgba(45,212,207,.2);border-radius:3px;padding:1px 6px;display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--card2);border:1px solid var(--rim);color:var(--t3);font-size:10px;cursor:pointer;flex-shrink:0;transition:all .15s;vertical-align:middle;margin-left:3px;line-height:1;font-family:var(--f-mono)}
+.copy-btn:hover{background:rgba(45,212,207,.08);border-color:var(--teal);color:var(--teal)}
+.copy-btn.copied{background:rgba(0,200,150,.15);border-color:var(--green);color:var(--green)}
+.link-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:9px;font-family:var(--f-mono);font-weight:600;border:1px solid;cursor:pointer;transition:all .15s;white-space:nowrap;text-decoration:none;line-height:1.4}
+.link-btn-vdp{color:var(--accent);border-color:rgba(92,124,250,.3);background:var(--ag2)}
+.link-btn-vdp:hover{background:var(--ag);border-color:var(--accent)}
+.link-btn-console{color:var(--teal);border-color:rgba(45,212,207,.3);background:rgba(45,212,207,.06)}
+.link-btn-console:hover{background:rgba(45,212,207,.12);border-color:var(--teal)}
+.drw-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none;backdrop-filter:blur(4px)}
+.drw{position:fixed;right:0;top:0;bottom:0;width:min(960px,96vw);background:var(--panel);border-left:1px solid var(--rim);z-index:301;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);box-shadow:-12px 0 60px rgba(0,0,0,.5)}
+.drw.open{transform:translateX(0)}
+.drw-hdr{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--rim);flex-shrink:0}
+.drw-back{width:30px;height:30px;border-radius:7px;border:1px solid var(--rim);background:var(--card);color:var(--t2);display:grid;place-items:center;font-size:14px;flex-shrink:0;transition:all .14s}
+.drw-back:hover{border-color:var(--teal);color:var(--teal)}
+.drw-hdr-info{flex:1;min-width:0}
+.drw-title{font-size:14px;font-weight:700;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drw-subtitle{font-size:11px;font-family:var(--f-mono);color:var(--t2);margin-top:1px;letter-spacing:.3px}
+.drw-hdr-actions{display:flex;gap:6px;flex-shrink:0}
+.drw-body{flex:1;overflow-y:auto;padding:20px 22px}
+.drw-body::-webkit-scrollbar{width:3px}
+.drw-body::-webkit-scrollbar-thumb{background:var(--rim2);border-radius:2px}
+.drw-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.ds{background:var(--card);border:1px solid var(--rim);border-radius:10px;padding:12px 14px}
+.ds-val{font-size:22px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.ds-label{font-size:10px;font-family:var(--f-mono);color:var(--t2);text-transform:uppercase;letter-spacing:.8px;margin-top:3px}
+.drw-tbl-wrap{background:var(--card);border:1px solid var(--rim);border-radius:10px;overflow:hidden}
+.drw-tbl-wrap table{font-size:11px}
+.drw-tbl-wrap th{font-size:7px;padding:7px 11px}
+.drw-tbl-wrap td{padding:7px 11px}
+.drw-tbl-wrap th:first-child,.drw-tbl-wrap td:first-child{padding-left:14px}
+.thumb-img{width:52px;height:38px;object-fit:cover;border-radius:5px;border:1px solid var(--rim);flex-shrink:0}
+.vin-cell{display:flex;align-items:center;gap:8px}
+.no-data{text-align:center;padding:40px;font-family:var(--f-mono);font-size:10px;color:var(--t3);letter-spacing:.5px}
+#uf{display:none;background:var(--card);border:1px solid var(--rim);border-radius:16px;padding:28px 32px;margin-bottom:28px}
+.uf-title{font-size:15px;font-weight:700;margin-bottom:6px}
+.uf-msg{font-size:12px;color:var(--t2);margin-bottom:18px;line-height:1.6}
+.uf-btns{display:flex;gap:10px;flex-wrap:wrap}
+.uf-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600}
+.uf-btn-p{background:var(--teal);color:#fff}
+.uf-btn-s{background:var(--card2);border:1px solid var(--rim);color:var(--t2)}
+.refresh-ring{position:relative;width:34px;height:34px;flex-shrink:0}
+.refresh-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.refresh-ring circle{fill:none;stroke-width:2.5;stroke-linecap:round;transition:stroke-dashoffset .9s linear}
+.refresh-ring-bg{stroke:var(--rim)}
+.refresh-ring-fill{stroke:var(--teal)}
+.refresh-ring-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:7px;font-family:'JetBrains Mono',monospace;color:var(--t3);font-weight:700;letter-spacing:-.5px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+#dash>*{animation:fadeUp .3s ease both}
+#dash>*:nth-child(1){animation-delay:.05s}
+#dash>*:nth-child(2){animation-delay:.1s}
+#dash>*:nth-child(3){animation-delay:.15s}
+#dash>*:nth-child(4){animation-delay:.2s}
+#dash>*:nth-child(5){animation-delay:.25s}
+.skel{background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);background-size:200% 100%;animation:skel 1.4s infinite;border-radius:8px}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* 360 badge on spin icon */
+.spin-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:5px;font-size:9px;font-family:var(--f-mono);background:rgba(45,212,207,.1);border:1px solid rgba(45,212,207,.2);color:var(--teal);letter-spacing:.5px}
+.ent-stage{font-size:9px;font-family:var(--f-mono);padding:1px 6px;border-radius:3px}
+.stage-live{background:rgba(0,229,160,.1);color:var(--green)}
+.stage-onboard{background:rgba(245,166,35,.1);color:var(--amber)}
+/* input type chip */
+.itype-chip{display:inline-block;font-family:var(--f-mono);font-size:8px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;letter-spacing:.3px}
+.itype-video{background:rgba(180,143,255,.15);border:1px solid rgba(180,143,255,.4);color:var(--purple)}
+.itype-image{background:rgba(45,212,207,.15);border:1px solid rgba(45,212,207,.4);color:var(--teal)}
+@media(max-width:900px){.chart-pair{grid-template-columns:1fr}.hour-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.page{padding:0 12px 80px}.hdr{grid-template-columns:1fr auto}.hdr-center{display:none}.metric-strip{grid-template-columns:repeat(2,1fr)}.filter-row{grid-template-columns:repeat(2,1fr)}.hcard-n{font-size:28px}}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="hdr-wrap">
+<header class="hdr">
+  <div class="hdr-brand">
+    <img id="logo-img" src="https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/Spyne_Logo_White.png" alt="Spyne" class="hdr-logo" style="height:36px"/>
+    <div>
+      <div style="font-size:16px;font-weight:700;letter-spacing:-.3px">360 QC Pendency</div>
+      <div style="font-size:9px;font-family:var(--f-mono);color:var(--t3);letter-spacing:1.5px;margin-top:1px">QC UNASSIGNED · DASHBOARD</div>
+    </div>
+  </div>
+  <div class="hdr-center">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--rim);border-radius:10px;padding:4px">
+        <button id="tab-pendency" onclick="switchTab('pendency')" style="padding:6px 18px;border-radius:7px;font-size:12px;font-weight:600;font-family:var(--f-mono);border:none;cursor:pointer;transition:all .15s;background:var(--teal);color:#fff">QC Pendency</button>
+        <button id="tab-vinwise" onclick="switchTab('vinwise')" style="padding:6px 18px;border-radius:7px;font-size:12px;font-weight:600;font-family:var(--f-mono);border:none;cursor:pointer;transition:all .15s;background:transparent;color:var(--t2)">VIN Wise</button>
+      </div>
+      <div class="live-badge" style="font-size:10px;padding:3px 10px"><span class="live-dot"></span><span id="st-text">Loading…</span></div>
+    </div>
+  </div>
+  <div class="hdr-actions" style="gap:4px">
+    <span class="sync-time" id="sy"></span>
+    <button class="icon-btn" id="tbtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    <!-- Main refresh — visible on QC Pendency tab -->
+    <div id="main-refresh-group" style="display:flex;align-items:center;gap:0">
+      <div class="refresh-ring" title="Auto-refresh 3min">
+        <svg viewBox="0 0 34 34" width="34" height="34">
+          <circle class="refresh-ring-bg" cx="17" cy="17" r="14"/>
+          <circle class="refresh-ring-fill" id="ring-fill" cx="17" cy="17" r="14" stroke-dasharray="87.96" stroke-dashoffset="0"/>
+        </svg>
+        <div class="refresh-ring-label" id="ring-label">3:00</div>
+      </div>
+      <button class="refresh-btn" onclick="manualRefresh()" style="border-radius:0 8px 8px 0;margin-left:-1px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Refresh
+      </button>
+    </div>
+    <!-- VIN Wise refresh — visible on VIN Wise tab -->
+    <div id="vw-refresh-group" style="display:none;align-items:center;gap:0">
+      <div class="refresh-ring" title="Auto-refresh 1min" style="width:34px;height:34px;flex-shrink:0">
+        <svg viewBox="0 0 34 34" width="34" height="34" style="position:absolute;inset:0;transform:rotate(-90deg)">
+          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--rim)"/>
+          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--teal)" id="vw-ring" stroke-dasharray="87.96" stroke-dashoffset="0"/>
+        </svg>
+        <div class="refresh-ring-label" id="vw-ring-label">1:00</div>
+      </div>
+      <button class="refresh-btn" onclick="refreshVinWise()" style="border-radius:0 8px 8px 0;margin-left:-1px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+</header>
+</div>
 
-const METABASE_CSV_URL =
-    'https://metabase.spyne.ai/public/question/777eeac8-7d6f-49f9-96d4-499cdea1b891.csv';
+<div id="uf">
+  <div class="uf-title">📂 Connect to Data</div>
+  <div class="uf-msg" id="uf-msg">Live fetch failed. Download the CSV from Metabase and upload it below.</div>
+  <div class="uf-btns">
+    <a class="uf-btn uf-btn-p" href="https://metabase.spyne.ai/public/question/7f9326d8-9eb9-4cc2-bded-efb1aac967db.csv" target="_blank">↓ 360 Data CSV</a>
+    <label class="uf-btn uf-btn-s" style="cursor:pointer">📂 Upload CSV<input type="file" accept=".csv" style="display:none" onchange="handleUpload(event)"></label>
+  </div>
+</div>
 
-let _cache = null;
-let _lastFetch = 0;
-const CACHE_TTL = 5 * 60 * 1000;
+<div id="loading"><div class="load-ring"></div><div class="load-label" id="load-label">FETCHING 360 QC DATA</div><div id="load-steps" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:10px;font-family:var(--f-mono);color:var(--t3);text-align:center"></div></div>
 
-function parseLine(line) {
-    const fields = [];
-    let cur = '', inQ = false, i = 0;
-    while (i < line.length) {
-          const c = line[i];
-          if (inQ) {
-                  if (c === '"' && line[i + 1] === '"') { cur += '"'; i += 2; }
-                  else if (c === '"') { inQ = false; i++; }
-                  else { cur += c; i++; }
-          } else {
-                  if (c === '"') { inQ = true; i++; }
-                  else if (c === ',') { fields.push(cur.trim()); cur = ''; i++; }
-                  else { cur += c; i++; }
-          }
-    }
-    fields.push(cur.trim());
-    return fields;
+<div id="dash" style="display:none">
+  <!-- Overview -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-label"><span class="sec-title">Overview</span><span class="tag tag-teal" id="overview-tag">QC UNASSIGNED</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="reset-btn" onclick="resetAllFilters()" style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;border:1px solid var(--rim2);background:var(--card2);color:var(--t2);font-size:11px;font-family:var(--f-mono);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--rim2)';this.style.color='var(--t2)'">✕ Reset Filters</button>
+      </div>
+    </div>
+    <div class="metric-strip" id="metrics"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-label"><span class="sec-title">Age Breakdown</span><span class="tag tag-teal" id="hr-tag">CREATED AT</span></div></div>
+    <div class="hour-grid" id="hcards"></div>
+  </div>
+
+  <!-- Filter by Input Type -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-label"><span class="sec-title">Filter by Input Type</span><span class="tag tag-teal" id="type-tag">ALL TYPES</span></div></div>
+    <div class="filter-row" id="type-fcards"></div>
+  </div>
+
+  <!-- Distribution charts -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-label"><span class="sec-title">Distribution</span><span class="tag tag-teal" id="dist-tag">ACTIVE FILTER</span></div></div>
+    <div class="chart-pair">
+      <div class="chart-panel">
+        <div class="chart-panel-title">By Customer Segment <span id="ch-cs-clear" onclick="_activeCustomerSegment=null;rerender()" style="display:none;font-size:9px;font-family:var(--f-mono);color:var(--teal);cursor:pointer;margin-left:8px">✕ clear</span></div>
+        <div class="chart-panel-sub" id="ch-cs-sub"></div>
+        <div class="bar-list" id="ch-cs"></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-panel-title">By CRM Status <span id="ch-crm-clear" onclick="_activeCrmStatus=null;rerender()" style="display:none;font-size:9px;font-family:var(--f-mono);color:var(--teal);cursor:pointer;margin-left:8px">✕ clear</span></div>
+        <div class="chart-panel-sub" id="ch-crm-sub"></div>
+        <div class="bar-list" id="ch-crm"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enterprise breakdown -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-label"><span class="sec-title">Enterprise Breakdown</span><span class="tag tag-teal" id="ent-tag">ALL</span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div class="dl-dropdown" id="dl-ent-all-dd">
+          <button class="dl-trigger" onclick="toggleDl('dl-ent-all-dd')" style="border-color:rgba(45,212,207,.3);color:var(--teal)" title="Download all SKU rows">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            All SKUs
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dl-menu">
+            <button class="dl-item" onclick="dlAllRows('ent','csv');closeDl('dl-ent-all-dd')"><span class="dl-item-icon">📄</span>CSV</button>
+            <button class="dl-item" onclick="dlAllRows('ent','json');closeDl('dl-ent-all-dd')"><span class="dl-item-icon">{ }</span>JSON</button>
+          </div>
+        </div>
+        <div class="dl-strip" id="dl-ent"></div>
+      </div>
+    </div>
+    <div class="tbl-shell"><div class="tbl-scroll"><table>
+      <thead><tr>
+        <th style="min-width:200px"># Enterprise</th>
+        <th style="min-width:100px">Enterprise ID</th>
+        <th style="min-width:70px">Stage</th>
+        <th style="min-width:120px">Segment</th>
+        <th style="min-width:180px">POC Email</th>
+        <th style="min-width:150px">Assigned Team</th>
+        <th>0–2h</th><th>2–4h</th><th>4–6h</th><th>6–12h</th><th>12+h</th>
+        <th>Total</th>
+      </tr></thead>
+      <tbody id="ent-tbody"></tbody>
+    </table></div></div>
+  </div>
+
+  <!-- Team breakdown -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-label"><span class="sec-title">Team Breakdown</span><span class="tag tag-teal" id="team-tag">ALL TEAMS</span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div class="dl-dropdown" id="dl-team-all-dd">
+          <button class="dl-trigger" onclick="toggleDl('dl-team-all-dd')" style="border-color:rgba(45,212,207,.3);color:var(--teal)" title="Download all SKU rows">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            All SKUs
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dl-menu">
+            <button class="dl-item" onclick="dlAllRows('team','csv');closeDl('dl-team-all-dd')"><span class="dl-item-icon">📄</span>CSV</button>
+            <button class="dl-item" onclick="dlAllRows('team','json');closeDl('dl-team-all-dd')"><span class="dl-item-icon">{ }</span>JSON</button>
+          </div>
+        </div>
+        <div class="dl-strip" id="dl-team"></div>
+      </div>
+    </div>
+    <div class="tbl-shell"><div class="tbl-scroll"><table>
+      <thead><tr>
+        <th style="min-width:200px"># Team</th>
+        <th style="min-width:100px">Team ID</th>
+        <th style="min-width:120px">Segment</th>
+        <th style="min-width:180px">POC Email</th>
+        <th style="min-width:150px">Assigned Team</th>
+        <th>0–2h</th><th>2–4h</th><th>4–6h</th><th>6–12h</th><th>12+h</th>
+        <th>Total</th>
+      </tr></thead>
+      <tbody id="team-tbody"></tbody>
+    </table></div></div>
+  </div>
+</div>
+</div>
+
+<!-- Drawer -->
+<div class="drw-overlay" id="ov" onclick="closeDrawer()"></div>
+<div class="drw" id="drw">
+  <div class="drw-hdr">
+    <button class="drw-back" onclick="closeDrawer()">←</button>
+    <div class="drw-hdr-info">
+      <div class="drw-title" id="drw-title">SKU Details</div>
+      <div class="drw-subtitle" id="drw-subtitle"></div>
+    </div>
+    <div class="drw-hdr-actions"><div class="dl-strip" id="drw-dl"></div></div>
+  </div>
+  <div class="drw-body" id="drw-body"></div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────
+// Point this to your Vercel API endpoint
+// e.g. 'https://360-tracker-dashboard.vercel.app/api/360-pendency'
+// or '/api/360-pendency' if deploying to same Vercel project
+const API = '/api/360-pendency';
+
+let _activeTab = 'pendency';
+
+const BKTS = [
+  {l:'0–2h',  k:'b0',  min:0,   max:2,   c:'#2dd4cf'},
+  {l:'2–4h',  k:'b2',  min:2,   max:4,   c:'#f5a623'},
+  {l:'4–6h',  k:'b4',  min:4,   max:6,   c:'#b48fff'},
+  {l:'6–12h', k:'b6',  min:6,   max:12,  c:'#5c7cfa'},
+  {l:'12+h',  k:'b12', min:12,  max:9e9, c:'#f0516e'},
+];
+const COLORS=['#2dd4cf','#f0516e','#f5a623','#5c7cfa','#b48fff','#f472b6','#fb923c','#34d399','#60a5fa','#e879f9','#fbbf24','#00c896'];
+
+let _rows=[], _activeInputType=null, _activeBkt=null,
+    _activeCustomerSegment=null, _activeCrmStatus=null,
+    _drawerRows=[], _tblData={}, _sortState={};
+
+// ── Bucket helpers ─────────────────────────────────────────────────
+function mkB(){ const o={total:0}; BKTS.forEach(b=>o[b.k]=0); return o; }
+function addB(o,h){
+  if(h==null)return;
+  for(const b of BKTS){
+    if(h>=b.min&&(b.max===9e9?true:h<b.max)){o[b.k]++;o.total++;return;}
+  }
 }
 
-function parseCSV(text) {
-    const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 2) return [];
-    const headers = parseLine(lines[0]);
-    return lines.slice(1).filter(l => l.trim()).map(line => {
-          const vals = parseLine(line);
-          const obj = {};
-          headers.forEach((h, j) => { obj[h] = (vals[j] ?? '').trim(); });
-          return obj;
+// ── Filter ─────────────────────────────────────────────────────────
+// All rows are qc_unassigned (API filters before sending)
+function f(){
+  let rows=[..._rows];
+  if(_activeInputType) rows=rows.filter(r=>(r.inputType||'').trim()===_activeInputType);
+  if(_activeBkt){
+    const b=BKTS.find(b=>b.k===_activeBkt);
+    if(b) rows=rows.filter(r=>{
+      const ts=r.createdAt;if(!ts)return false;
+      const d=new Date(ts);if(isNaN(d))return false;
+      const h=(Date.now()-d)/3600000;
+      return h>=0&&h>=b.min&&(b.max===9e9?true:h<b.max);
     });
+  }
+  if(_activeCustomerSegment) rows=rows.filter(r=>(r.customerSegment||'').trim()===_activeCustomerSegment);
+  if(_activeCrmStatus) rows=rows.filter(r=>(r.crmStatus||'').trim()===_activeCrmStatus);
+  return rows;
+}
+function lbl(){
+  const parts=['QC Unassigned'];
+  if(_activeInputType) parts.push(_activeInputType);
+  if(_activeBkt){const b=BKTS.find(b=>b.k===_activeBkt);if(b)parts.push(b.l);}
+  if(_activeCustomerSegment) parts.push(_activeCustomerSegment);
+  if(_activeCrmStatus) parts.push(_activeCrmStatus);
+  return parts.join(' · ');
 }
 
-function pick(r, ...names) {
-    for (const n of names) {
-          const v = r[n];
-          if (v != null && String(v).trim()) return String(v).trim();
+function copyCell(val, el) {
+  if (!val || val === '—') return;
+  const flash = (ok) => {
+    el.style.background = ok ? 'rgba(0,200,150,.25)' : 'rgba(240,81,110,.2)';
+    setTimeout(() => { el.style.background = ''; }, 700);
+  };
+  // execCommand works reliably on direct user click events
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = val;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) { flash(true); return; }
+  } catch(e) {}
+  // Fallback: clipboard API
+  navigator.clipboard?.writeText(val).then(() => flash(true)).catch(() => flash(false));
+}
+
+
+function copyVal(text,btn){
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.classList.add('copied');btn.textContent='✓';
+    setTimeout(()=>{btn.classList.remove('copied');btn.textContent='⎘';},1500);
+  }).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);
+    ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    btn.classList.add('copied');btn.textContent='✓';
+    setTimeout(()=>{btn.classList.remove('copied');btn.textContent='⎘';},1500);
+  });
+}
+function cbBtn(val,title='Copy'){
+  const safe=(val||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return val?`<button class="copy-btn" title="${title}" onclick="event.stopPropagation();copyVal('${safe}',this)">⎘</button>`:'';
+}
+
+// ── Input type chip ────────────────────────────────────────────────
+function itypeChip(v){
+  if(!v)return'<span style="color:var(--t3)">—</span>';
+  const isVid=v.toLowerCase().includes('video');
+  return`<span class="itype-chip ${isVid?'itype-video':'itype-image'}">${v}</span>`;
+}
+
+// ── Metrics ────────────────────────────────────────────────────────
+function renderMetrics(rows){
+  const total=rows.length;
+  const ents=[...new Set(rows.map(r=>r.eid||r.entName).filter(Boolean))].length;
+  const teams=rows.filter(r=>(r.crmStatus||'').trim().toLowerCase()!=='qc_unassigned'&&(r.crmStatus||'').trim()!=='').length;
+  const _now=Date.now();
+  const getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
+  const over24=rows.filter(r=>{ const h=getAge(r); return h!=null&&h>24; }).length;
+  const ageRows=rows.map(getAge).filter(h=>h!=null);
+  const avgHrs=ageRows.reduce((s,h)=>s+h,0)/(ageRows.length||1);
+  const items=[
+    {icon:'🔄',val:total,  label:'QC Unassigned', sub:'Total VINs'},
+    {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
+    {icon:'👥',val:teams,  label:'Teams',       sub:'Assigned'},
+    {icon:'⏰',val:over24, label:'Over 24h',    sub:'Waiting'},
+  ];
+  document.getElementById('metrics').innerHTML=items.map(i=>
+    `<div class="metric"><div class="metric-icon">${i.icon}</div>
+     <div class="metric-val" ${i.val>9999&&!i.isStr?'style="font-size:24px"':''}>${typeof i.val==='number'?i.val.toLocaleString():i.val}</div>
+     <div class="metric-label">${i.label}</div>
+     <div class="metric-sub">${i.sub}</div></div>`).join('');
+  document.getElementById('overview-tag').textContent=`QC UNASSIGNED · ${total.toLocaleString()} VINs`;
+  updateResetBtn();
+}
+
+// ── Age buckets ────────────────────────────────────────────────────
+function renderHours(rows){
+  const now=Date.now();
+  // Recalculate age from createdAt at render time (always fresh)
+  const getAge=r=>{
+    const ts=r.createdAt;
+    if(!ts)return null;
+    const d=new Date(ts);if(isNaN(d))return null;
+    const h=(now-d)/3600000;return h>=0?h:null;
+  };
+  const obj=mkB();rows.forEach(r=>addB(obj,getAge(r)));
+  const mx=obj.total||1;
+  const el=document.getElementById('hcards');el.innerHTML='';
+  BKTS.forEach(b=>{
+    const n=obj[b.k]||0,p=Math.round(n/mx*100),isActive=_activeBkt===b.k;
+    const d=document.createElement('div');
+    d.className='hcard'+(isActive?' active':'');
+    d.style.setProperty('--hc',b.c);
+    d.innerHTML=`<div class="hcard-bg"></div><div class="hcard-range">${b.l}</div>
+      <div class="hcard-n">${n.toLocaleString()}</div>
+      <div class="hcard-pct">${p}% of total</div>
+      <div class="hcard-bar"><div class="hcard-bar-fill" style="background:${b.c}"></div></div>`;
+    setTimeout(()=>d.querySelector('.hcard-bar-fill').style.width=p+'%',100);
+    d.onclick=e=>{e.stopPropagation();_activeBkt=_activeBkt===b.k?null:b.k;rerender();};
+    el.appendChild(d);
+  });
+  const bl=_activeBkt?(BKTS.find(b=>b.k===_activeBkt)?.l||''):'';
+  document.getElementById('hr-tag').textContent='CREATED AT'+(bl?' · '+bl:'');
+}
+
+// ── Input Type filter cards ────────────────────────────────────────
+function renderTypeCards(){
+  const map={};
+  _rows.forEach(r=>{const t=(r.inputType||'').trim();if(t)map[t]=(map[t]||0)+1;});
+  const entries=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('type-tag').textContent=`${entries.length} TYPES`;
+  const el=document.getElementById('type-fcards');el.innerHTML='';
+  const ac=document.createElement('div');
+  ac.className='fcard'+(_activeInputType===null?' active':'');
+  ac.style.setProperty('--fc','var(--teal)');
+  ac.innerHTML=`<div class="fc-name">All Types</div><div class="fc-val">${_rows.length.toLocaleString()}</div><div class="fc-sub">100%</div>`;
+  ac.onclick=e=>{e.stopPropagation();_activeInputType=null;syncTypeActive();rerender();};
+  el.appendChild(ac);
+  entries.forEach(([name,count],i)=>{
+    const col=COLORS[i%COLORS.length];
+    const d=document.createElement('div');
+    d.className='fcard'+(_activeInputType===name?' active':'');
+    d.dataset.t=name;d.style.setProperty('--fc',col);
+    d.innerHTML=`<div class="fc-name" title="${name}">${name}</div>
+      <div class="fc-val">${count.toLocaleString()}</div>
+      <div class="fc-sub">${Math.round(count/_rows.length*100)}%</div>`;
+    d.onclick=e=>{e.stopPropagation();_activeInputType=name;syncTypeActive();rerender();};
+    el.appendChild(d);
+  });
+}
+function syncTypeActive(){
+  document.querySelectorAll('#type-fcards .fcard').forEach(c=>{
+    c.classList.toggle('active',c.dataset.t?c.dataset.t===_activeInputType:_activeInputType===null);
+  });
+}
+
+// ── Bar charts ─────────────────────────────────────────────────────
+function drawBars(id,subId,entries,sub,onClickFn){
+  document.getElementById(subId).textContent=sub;
+  const el=document.getElementById(id);
+  if(!entries.length){el.innerHTML='<div style="font-size:10px;color:var(--t3);font-family:var(--f-mono)">No data</div>';return;}
+  const mx=entries[0][1]||1,tot=entries.reduce((s,[,n])=>s+n,0);
+  el.innerHTML=entries.slice(0,10).map(([name,n],i)=>{
+    const pw=Math.round(n/mx*100),pt=Math.round(n/tot*100),col=COLORS[i%COLORS.length];
+    const ac=onClickFn?.active===name?' bar-item-active':'';
+    return`<div class="bar-item${ac}" data-name="${name}" style="${onClickFn?'cursor:pointer':''}">
+      <div class="bar-name" title="${name}">${name||'Unknown'}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0%;background:${col}" data-w="${pw}"></div></div>
+      <div class="bar-count">${n.toLocaleString()} <span style="color:var(--t3);font-size:8px">(${pt}%)</span></div>
+    </div>`;
+  }).join('');
+  setTimeout(()=>el.querySelectorAll('.bar-fill').forEach(e=>e.style.width=e.dataset.w+'%'),100);
+  if(onClickFn) el.querySelectorAll('.bar-item').forEach(item=>item.addEventListener('click',ev=>{ev.stopPropagation();onClickFn(item.dataset.name);}));
+}
+
+function renderCharts(rows){
+  document.getElementById('dist-tag').textContent=lbl()||'ALL';
+  // Customer segment chart
+  const csMap={};rows.forEach(r=>{const cs=(r.customerSegment||'Unknown').trim();csMap[cs]=(csMap[cs]||0)+1;});
+  const csClick=Object.assign(name=>{_activeCustomerSegment=_activeCustomerSegment===name?null:name;rerender();},{active:_activeCustomerSegment});
+  drawBars('ch-cs','ch-cs-sub',Object.entries(csMap).sort((a,b)=>b[1]-a[1]),`${rows.length} SKUs · click to filter`,csClick);
+  document.getElementById('ch-cs-clear').style.display=_activeCustomerSegment?'inline':'none';
+  // CRM status chart
+  const crmMap={};rows.forEach(r=>{const s=(r.crmStatus||'unknown').trim();crmMap[s]=(crmMap[s]||0)+1;});
+  const crmClick=Object.assign(name=>{_activeCrmStatus=_activeCrmStatus===name?null:name;rerender();},{active:_activeCrmStatus});
+  drawBars('ch-crm','ch-crm-sub',Object.entries(crmMap).sort((a,b)=>b[1]-a[1]),`${rows.length} SKUs · click to filter`,crmClick);
+  document.getElementById('ch-crm-clear').style.display=_activeCrmStatus?'inline':'none';
+  updateResetBtn();
+}
+
+// ── Table sort ─────────────────────────────────────────────────────
+function sortTableData(data,col,dir){
+  return [...data].sort((a,b)=>{
+    let va=a[col]??(typeof a[col]==='number'?0:''),vb=b[col]??(typeof b[col]==='number'?0:'');
+    if(typeof va==='string')return dir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    return dir==='asc'?va-vb:vb-va;
+  });
+}
+
+// ── Enterprise table ───────────────────────────────────────────────
+function renderEntTbl(data){
+  const tbodyId='ent-tbody';
+  const tbody=document.getElementById(tbodyId);tbody.innerHTML='';
+  if(!data.length){tbody.innerHTML='<tr><td colspan="12" class="no-data">NO DATA</td></tr>';return;}
+  const ss=_sortState[tbodyId]||{col:'total',dir:'desc'};
+  const sorted=sortTableData(data,ss.col,ss.dir);
+  const thead=tbody.closest('table')?.querySelector('thead');
+  if(thead){
+    const colKeys=['name','id','stage','customerSegment','email','assignedTeam',...BKTS.map(b=>b.k),'total'];
+    thead.querySelectorAll('th').forEach((th,i)=>{
+      th.classList.remove('sort-asc','sort-desc');
+      const ck=colKeys[i];if(!ck)return;
+      if(ck===ss.col)th.classList.add(ss.dir==='asc'?'sort-asc':'sort-desc');
+      th.onclick=()=>{const cur=_sortState[tbodyId]||{col:'total',dir:'desc'};_sortState[tbodyId]={col:ck,dir:cur.col===ck&&cur.dir==='desc'?'asc':'desc'};renderEntTbl(data);};
+    });
+  }
+  sorted.forEach((row,i)=>{
+    const rnkClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const customerSegments=[...new Set(row._rows.map(r=>r.customerSegment).filter(Boolean))];
+    const pocEmail=row.email||row._rows[0]?.entEmail||'';
+    const stage=row.stage||row._rows[0]?.entStage||'';
+    const stageCls=stage.toLowerCase().includes('live')?'stage-live':stage.toLowerCase().includes('onboard')?'stage-onboard':'';
+    const assignedTeams=[...new Set(row._rows.map(r=>r.assignedTeam).filter(Boolean))];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">
+        <span class="rnk ${rnkClass}">${i+1}</span>
+        <span style="font-weight:600">${row.name||'—'}</span>
+        ${cbBtn(row.name,'Copy enterprise name')}
+      </div></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        <span class="id-chip" title="${row.eid||''}">${row.eid||'—'}</span>
+        ${cbBtn(row.eid,'Copy enterprise ID')}
+      </div></td>
+      <td>${stage?`<span class="ent-stage ${stageCls}">${stage}</span>`:'<span style="color:var(--t3)">—</span>'}</td>
+      <td><span style="font-size:10px;color:var(--t2)">${customerSegments.join(', ')||'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        ${pocEmail?`<span class="poc-chip" title="${pocEmail}">${pocEmail}</span>${cbBtn(pocEmail,'Copy POC email')}`:'<span style="color:var(--t3);font-size:10px">—</span>'}
+      </div></td>
+      <td><span style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${assignedTeams.join(', ')||'—'}</span></td>
+      ${BKTS.map(b=>{const n=row[b.k]||0,p=row.total>0?n/row.total*100:0;
+        return`<td><div class="mini-progress"><span style="font-family:var(--f-mono);font-size:10px;min-width:20px">${n}</span>
+          <div class="mp-track"><div class="mp-fill" style="width:${p}%;background:${b.c}"></div></div></div></td>`;
+      }).join('')}
+      <td><span class="pill-chip">${(row.total||0).toLocaleString()}</span></td>`;
+    tr.onclick=e=>{e.stopPropagation();if(row._rows?.length)openDrawer(row.name,row._rows);};
+    tbody.appendChild(tr);
+  });
+  const tot=mkB();data.forEach(r=>{BKTS.forEach(b=>{tot[b.k]=(tot[b.k]||0)+(r[b.k]||0);});tot.total+=r.total||0;});
+  const tf=document.createElement('tr');tf.className='tbl-foot';tf.style.cursor='default';
+  tf.innerHTML=`<td><strong>Subtotal</strong></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+    ${BKTS.map(b=>`<td style="font-family:var(--f-mono);font-size:10px">${(tot[b.k]||0).toLocaleString()}</td>`).join('')}
+    <td><span class="pill-chip">${tot.total.toLocaleString()}</span></td>`;
+  tbody.appendChild(tf);
+}
+
+// ── Team table ─────────────────────────────────────────────────────
+function renderTeamTbl(data){
+  const tbodyId='team-tbody';
+  const tbody=document.getElementById(tbodyId);tbody.innerHTML='';
+  if(!data.length){tbody.innerHTML='<tr><td colspan="11" class="no-data">NO DATA</td></tr>';return;}
+  const ss=_sortState[tbodyId]||{col:'total',dir:'desc'};
+  const sorted=sortTableData(data,ss.col,ss.dir);
+  const thead=tbody.closest('table')?.querySelector('thead');
+  if(thead){
+    const colKeys=['name','id','customerSegment','email','assignedTeam',...BKTS.map(b=>b.k),'total'];
+    thead.querySelectorAll('th').forEach((th,i)=>{
+      th.classList.remove('sort-asc','sort-desc');
+      const ck=colKeys[i];if(!ck)return;
+      if(ck===ss.col)th.classList.add(ss.dir==='asc'?'sort-asc':'sort-desc');
+      th.onclick=()=>{const cur=_sortState[tbodyId]||{col:'total',dir:'desc'};_sortState[tbodyId]={col:ck,dir:cur.col===ck&&cur.dir==='desc'?'asc':'desc'};renderTeamTbl(data);};
+    });
+  }
+  sorted.forEach((row,i)=>{
+    const rnkClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const customerSegments=[...new Set(row._rows.map(r=>r.customerSegment).filter(Boolean))];
+    const pocEmail=row.email||row._rows[0]?.entEmail||'';
+    const assignedTeams=[...new Set(row._rows.map(r=>r.assignedTeam).filter(Boolean))];
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">
+        <span class="rnk ${rnkClass}">${i+1}</span>
+        <span style="font-weight:600">${row.name||'—'}</span>
+        ${cbBtn(row.name,'Copy team name')}
+      </div></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        <span class="id-chip" title="${row.teamId||''}">${row.teamId||'—'}</span>
+        ${cbBtn(row.teamId,'Copy team ID')}
+      </div></td>
+      <td><span style="font-size:10px;color:var(--t2)">${customerSegments.join(', ')||'—'}</span></td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        ${pocEmail?`<span class="poc-chip" title="${pocEmail}">${pocEmail}</span>${cbBtn(pocEmail,'Copy POC email')}`:'<span style="color:var(--t3);font-size:10px">—</span>'}
+      </div></td>
+      <td><span style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${assignedTeams.join(', ')||'—'}</span></td>
+      ${BKTS.map(b=>{const n=row[b.k]||0,p=row.total>0?n/row.total*100:0;
+        return`<td><div class="mini-progress"><span style="font-family:var(--f-mono);font-size:10px;min-width:20px">${n}</span>
+          <div class="mp-track"><div class="mp-fill" style="width:${p}%;background:${b.c}"></div></div></div></td>`;
+      }).join('')}
+      <td><span class="pill-chip">${(row.total||0).toLocaleString()}</span></td>`;
+    tr.onclick=e=>{e.stopPropagation();if(row._rows?.length)openDrawer(row.name,row._rows);};
+    tbody.appendChild(tr);
+  });
+  const tot=mkB();data.forEach(r=>{BKTS.forEach(b=>{tot[b.k]=(tot[b.k]||0)+(r[b.k]||0);});tot.total+=r.total||0;});
+  const tf=document.createElement('tr');tf.className='tbl-foot';tf.style.cursor='default';
+  tf.innerHTML=`<td><strong>Subtotal</strong></td><td>—</td><td>—</td><td>—</td><td>—</td>
+    ${BKTS.map(b=>`<td style="font-family:var(--f-mono);font-size:10px">${(tot[b.k]||0).toLocaleString()}</td>`).join('')}
+    <td><span class="pill-chip">${tot.total.toLocaleString()}</span></td>`;
+  tbody.appendChild(tf);
+}
+
+// ── Drawer ─────────────────────────────────────────────────────────
+let _drawerSortCol='hrsCreated', _drawerSortDir='desc';
+function openDrawer(title,rows){
+  _drawerRows=rows;
+  document.getElementById('drw-title').textContent=title;
+  document.getElementById('drw-subtitle').textContent=`${rows.length} SKUs · QC Unassigned`;
+  document.getElementById('drw-dl').innerHTML=`
+    <div class="dl-dropdown" id="drw-dl-dd">
+      <button class="dl-trigger" onclick="toggleDl('drw-dl-dd')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="dl-menu">
+        <button class="dl-item" onclick="dlDrawer('csv');closeDl('drw-dl-dd')"><span class="dl-item-icon">📄</span>CSV</button>
+        <button class="dl-item" onclick="dlDrawer('json');closeDl('drw-dl-dd')"><span class="dl-item-icon">{ }</span>JSON</button>
+      </div>
+    </div>`;
+  const _now2=Date.now();
+  const getAge2=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now2-d)/3600000;return h>=0?h:null;};
+  const over24=rows.filter(r=>getAge2(r)!=null&&getAge2(r)>24).length;
+  const ageVals=rows.map(getAge2).filter(h=>h!=null);
+  const avgHrs=ageVals.reduce((s,h)=>s+h,0)/(ageVals.length||1);
+  document.getElementById('drw-body').innerHTML=`
+    <div class="drw-stats">
+      <div class="ds"><div class="ds-val">${rows.length}</div><div class="ds-label">SKUs</div></div>
+      <div class="ds"><div class="ds-val" style="color:var(--red)">${over24}</div><div class="ds-label">Over 24h</div></div>
+      <div class="ds"><div class="ds-val">${isFinite(avgHrs)?avgHrs.toFixed(1)+'h':'—'}</div><div class="ds-label">Avg Age</div></div>
+      <div class="ds"><div class="ds-val">${[...new Set(rows.map(r=>r.eid||r.entName).filter(Boolean))].length}</div><div class="ds-label">Enterprises</div></div>
+    </div>
+    <div class="drw-tbl-wrap">
+      <div class="tbl-scroll" style="max-height:calc(100vh - 290px)">
+        <table>
+          <thead><tr>
+            <th onclick="sortDrawer('sku')">SKU</th>
+            <th onclick="sortDrawer('vin')">VIN</th>
+            <th onclick="sortDrawer('entName')">Enterprise</th>
+            <th onclick="sortDrawer('teamName')">Team</th>
+            <th onclick="sortDrawer('assignedTeam')">Assigned Team</th>
+            <th onclick="sortDrawer('inputType')">Input</th>
+            <th onclick="sortDrawer('crmStatus')">CRM Status</th>
+            <th onclick="sortDrawer('customerSegment')">Segment</th>
+            <th onclick="sortDrawer('hrsCreated')">Age (hrs)</th>
+            <th onclick="sortDrawer('make')">Make/Model</th>
+            <th style="text-align:center">Links</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>`;
+  setTimeout(()=>renderDrawerRows(),0);
+  document.getElementById('drw').classList.add('open');
+  document.getElementById('ov').style.display='block';
+}
+function closeDrawer(){
+  document.getElementById('drw').classList.remove('open');
+  document.getElementById('ov').style.display='none';
+}
+function sortDrawer(col){
+  if(_drawerSortCol===col)_drawerSortDir=_drawerSortDir==='asc'?'desc':'asc';
+  else{_drawerSortCol=col;_drawerSortDir='desc';}
+  renderDrawerRows();
+}
+function renderDrawerRows(){
+  const rows=[..._drawerRows].sort((a,b)=>{
+    let va=a[_drawerSortCol],vb=b[_drawerSortCol];
+    if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;
+    if(typeof va==='string')return _drawerSortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    return _drawerSortDir==='asc'?va-vb:vb-va;
+  });
+  document.querySelectorAll('.drw-tbl-wrap thead th').forEach(th=>{
+    th.classList.remove('sort-asc','sort-desc');
+    const col=th.getAttribute('onclick')?.match(/sortDrawer\('(.+)'\)/)?.[1];
+    if(col===_drawerSortCol)th.classList.add(_drawerSortDir==='asc'?'sort-asc':'sort-desc');
+  });
+  const tbody=document.querySelector('.drw-tbl-wrap tbody');if(!tbody)return;
+  tbody.innerHTML=rows.map(r=>{
+    const skuVal=r.sku||'',vinVal=r.vin||'',entVal=r.entName||r.eid||'',teamVal=r.teamName||'';
+    const consoleUrl=(r.eid&&r.teamId&&r.sku)?`https://console.spyne.ai/inventory/v2/listings/${r.sku}?enterprise_id=${r.eid}&team_id=${r.teamId}`:'';
+    const _rNow=Date.now();
+    const freshAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+    const ageStr=(h=>{return h!=null?h.toFixed(1)+'h':'—';})(freshAge(r));
+    const ageColor=(h=>{return h!=null&&h>12?'var(--red)':h!=null&&h>6?'var(--amber)':'inherit';})(freshAge(r));
+    return`<tr>
+      <td onclick="event.stopPropagation();copyCell(this.dataset.copy,this)" data-copy="${skuVal}" title="Click to copy SKU" style="cursor:copy">
+        <div class="vin-cell">
+        ${r.thumbnail?`<img class="thumb-img" src="${r.thumbnail}" loading="lazy" onerror="this.style.display='none'">`:''}
+        <span style="font-family:var(--f-mono);font-size:9px">${skuVal||'—'}</span>
+      </div></td>
+      <td style="font-family:var(--f-mono);font-size:9px;cursor:copy" onclick="event.stopPropagation();copyCell(this.dataset.copy,this)" data-copy="${vinVal}" title="Click to copy VIN">${vinVal||'—'}</td>
+      <td style="font-size:10px;cursor:copy" onclick="event.stopPropagation();copyCell(this.dataset.copy,this)" data-copy="${entVal.replace(/"/g,'&quot;')}" title="Click to copy enterprise">${entVal||'—'}</td>
+      <td style="font-size:10px">${teamVal||'—'} ${cbBtn(teamVal,'Copy team')}</td>
+      <td style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${r.assignedTeam||'—'}</td>
+      <td>${itypeChip(r.inputType)}</td>
+      <td style="font-size:9px;color:var(--t2)">${r.crmStatus||'—'}</td>
+      <td style="font-size:10px;color:var(--t2)">${r.customerSegment||'—'}</td>
+      <td style="font-family:var(--f-mono);color:${ageColor}">${ageStr}</td>
+      <td style="font-size:10px">${[r.make,r.model,r.year].filter(Boolean).join(' ')||'—'}</td>
+      <td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:nowrap">
+        ${r.vdpUrl?`<a class="link-btn link-btn-vdp" href="${r.vdpUrl}" target="_blank" onclick="event.stopPropagation()">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>VDP</a>`:''}
+        ${consoleUrl?`<a class="link-btn link-btn-console" href="${consoleUrl}" target="_blank" onclick="event.stopPropagation()">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Console</a>`:''}
+        ${!r.vdpUrl&&!consoleUrl?'<span style="color:var(--t3);font-size:9px">—</span>':''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Main render ────────────────────────────────────────────────────
+function rerender(){
+  const rows=f(),l=lbl();
+  renderMetrics(rows);renderHours(rows);renderCharts(rows);renderTypeCards();
+  const _rNow=Date.now();
+  const _getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+
+  // Enterprise
+  const eMap={};
+  rows.forEach(r=>{
+    const e=r.entName||r.eid||'Unknown';
+    if(!eMap[e])eMap[e]={name:e,eid:r.eid||'',customerSegment:r.customerSegment||'—',email:r.entEmail||'',stage:r.entStage||'',...mkB(),_rows:[]};
+    addB(eMap[e],_getAge(r));eMap[e]._rows.push(r);
+    if(!eMap[e].email&&r.entEmail)eMap[e].email=r.entEmail;
+    if(!eMap[e].stage&&r.entStage)eMap[e].stage=r.entStage;
+  });
+  const eData=Object.values(eMap).filter(e=>e.total>0).sort((a,b)=>b.total-a.total);
+  _tblData['dl-ent']=eData;mkDl('dl-ent',`360-enterprises-under-review`);
+  document.getElementById('ent-tag').textContent=`${eData.length} ENTERPRISES · ${rows.length} SKUs`;
+  renderEntTbl(eData);
+  // Team
+  const tMap={};
+  rows.forEach(r=>{
+    const t=r.teamName||r.teamId||'Unknown';
+    if(!tMap[t])tMap[t]={name:t,teamId:r.teamId||'',customerSegment:r.customerSegment||'—',email:r.entEmail||'',...mkB(),_rows:[]};
+    addB(tMap[t],_getAge(r));tMap[t]._rows.push(r);
+    if(!tMap[t].email&&r.entEmail)tMap[t].email=r.entEmail;
+  });
+  const tData=Object.values(tMap).filter(t=>t.total>0).sort((a,b)=>b.total-a.total);
+  _tblData['dl-team']=tData;mkDl('dl-team',`360-teams-under-review`);
+  document.getElementById('team-tag').textContent=`${tData.length} TEAMS · ${rows.length} SKUs`;
+  renderTeamTbl(tData);
+  document.getElementById('st-text').textContent=`${rows.length.toLocaleString()} QC Unassigned`;
+  updateResetBtn();
+}
+
+function resetAllFilters(){_activeInputType=null;_activeBkt=null;_activeCustomerSegment=null;_activeCrmStatus=null;syncTypeActive();rerender();}
+function anyFilterActive(){return!!(_activeInputType||_activeBkt||_activeCustomerSegment||_activeCrmStatus);}
+function updateResetBtn(){const b=document.getElementById('reset-btn');if(b)b.style.display=anyFilterActive()?'inline-flex':'none';}
+
+// ── Download helpers ───────────────────────────────────────────────
+const DL_KEYS=['sku','vin','entName','teamName','assignedTeam','customerSegment','crmStatus','inputType','make','model','year','hrsCreated','overallScore','vinScore'];
+const DL_LABELS=['SKU','VIN','Enterprise','Team','Assigned Team','Customer Segment','CRM Status','Input Type','Make','Model','Year','Age(hrs)','Overall Score','VIN Score'];
+
+function dl(blob,n){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+
+function dlDrawer(fmt){
+  if(!_drawerRows.length)return;
+  if(fmt==='csv'){
+    const c=[DL_LABELS.join(','),..._drawerRows.map(r=>DL_KEYS.map(k=>{const v=String(r[k]??'');return/[,"]/.test(v)?`"${v.replace(/"/g,'""')}"`:v;}).join(','))].join('\n');
+    dl(new Blob([c],{type:'text/csv'}),'360-qc-pending.csv');
+  } else {
+    dl(new Blob([JSON.stringify(_drawerRows.map(r=>Object.fromEntries(DL_KEYS.map((k,i)=>[DL_LABELS[i],r[k]??'']))),null,2)],{type:'application/json'}),'360-qc-pending.json');
+  }
+}
+function dlAllRows(src,fmt){
+  const tblKey=src==='ent'?'dl-ent':'dl-team';
+  const tblData=_tblData[tblKey];
+  if(!tblData?.length)return;
+  const allRows=tblData.flatMap(t=>t._rows||[]);
+  if(!allRows.length)return;
+  const label=src==='ent'?'360-enterprise-skus':'360-team-skus';
+  if(fmt==='csv'){
+    const c=[DL_LABELS.join(','),...allRows.map(r=>DL_KEYS.map(k=>{const v=String(r[k]??'');return/[,"]/.test(v)?`"${v.replace(/"/g,'""')}"`:v;}).join(','))].join('\n');
+    dl(new Blob([c],{type:'text/csv'}),`${label}.csv`);
+  } else {
+    dl(new Blob([JSON.stringify(allRows.map(r=>Object.fromEntries(DL_KEYS.map((k,i)=>[DL_LABELS[i],r[k]??'']))),null,2)],{type:'application/json'}),`${label}.json`);
+  }
+}
+
+function mkDl(id,pre){
+  document.getElementById(id).innerHTML=`
+    <div class="dl-dropdown" id="${id}-dd">
+      <button class="dl-trigger" onclick="toggleDl('${id}-dd')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="dl-menu">
+        <button class="dl-item" onclick="closeDl('${id}-dd');dlTblCsv('${id}','${pre}')"><span class="dl-item-icon">📄</span>CSV</button>
+        <button class="dl-item" onclick="closeDl('${id}-dd');dlTblJson('${id}','${pre}')"><span class="dl-item-icon">{ }</span>JSON</button>
+      </div>
+    </div>`;
+}
+function dlTblCsv(id,pre){
+  const d=_tblData[id];if(!d?.length)return;
+  const allK=['name','eid','customerSegment',...BKTS.map(b=>b.k),'total'];
+  const allL=['Name','Enterprise ID','Customer Segment',...BKTS.map(b=>b.l),'Total'];
+  const c=[allL.join(','),...d.map(r=>allK.map(k=>r[k]??'').join(','))].join('\n');
+  dl(new Blob([c],{type:'text/csv'}),`${pre}.csv`);
+}
+function dlTblJson(id,pre){
+  const d=_tblData[id];if(!d?.length)return;
+  dl(new Blob([JSON.stringify(d.map(r=>{const {_rows,...rest}=r;return rest;}),null,2)],{type:'application/json'}),`${pre}.json`);
+}
+
+// ── Dropdown helpers ───────────────────────────────────────────────
+function toggleDl(id){
+  const dd=document.getElementById(id);if(!dd)return;
+  const isOpen=dd.classList.contains('open');
+  document.querySelectorAll('.dl-dropdown.open').forEach(d=>d.classList.remove('open'));
+  if(!isOpen)dd.classList.add('open');
+}
+function closeDl(id){const dd=document.getElementById(id);if(dd)dd.classList.remove('open');}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.dl-dropdown'))document.querySelectorAll('.dl-dropdown.open').forEach(d=>d.classList.remove('open'));
+});
+
+// ── Theme ──────────────────────────────────────────────────────────
+const LOGO_DARK='https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/Spyne_Logo_White.png';
+const LOGO_LIGHT='https://spyne-prod-ai.s3.us-east-1.amazonaws.com/ai-dataset/2025/logo/spyne_logo.webp';
+function setLogo(theme){const el=document.getElementById('logo-img');if(el)el.src=theme==='dark'?LOGO_DARK:LOGO_LIGHT;}
+function toggleTheme(){
+  const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  document.getElementById('tbtn').textContent=n==='dark'?'🌙':'☀️';
+  setLogo(n);
+  localStorage.setItem('360-pend-theme',n);
+}
+(()=>{const s=localStorage.getItem('360-pend-theme');if(s){document.documentElement.setAttribute('data-theme',s);document.getElementById('tbtn').textContent=s==='dark'?'🌙':'☀️';setLogo(s);}else{setLogo('dark');}})();
+
+// ── Auto-refresh ───────────────────────────────────────────────────
+const AUTO_MS=3*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
+const RING_CIRC=87.96;
+function startAutoRefresh(){
+  clearInterval(_refreshTimer);_refreshStart=Date.now();updateRing();
+  _refreshTimer=setInterval(()=>{
+    updateRing();
+    if(Date.now()-_refreshStart>=AUTO_MS){
+      // Time to refresh — clear cache and fetch fresh
+      try{localStorage.removeItem(LS_KEY);}catch(e){}
+      fetchFresh(false);
+      _refreshStart=Date.now(); // reset timer
     }
-    return '';
+  },1000);
+}
+function updateRing(){
+  const elapsed=Date.now()-_refreshStart,progress=Math.min(elapsed/AUTO_MS,1),remaining=Math.max(AUTO_MS-elapsed,0);
+  const ring=document.getElementById('ring-fill'),label=document.getElementById('ring-label');
+  if(!ring||!label)return;
+  ring.style.strokeDashoffset=(RING_CIRC*progress).toFixed(2);
+  const ts=Math.ceil(remaining/1000);
+  label.textContent=String(Math.floor(ts/60)).padStart(2,'0')+':'+String(ts%60).padStart(2,'0');
+  ring.style.stroke=remaining<60000?'var(--red)':'var(--teal)';
+}
+function manualRefresh(){
+  clearInterval(_refreshTimer);
+  try{localStorage.removeItem(LS_KEY);}catch(e){}
+  document.getElementById('st-text').textContent='Refreshing…';
+  fetchFresh(true).then(()=>startAutoRefresh());
 }
 
-function parseMetaDate(s) {
-    if (!s) return null;
-    if (s.includes('T') || s.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(s);
-    const cleaned = s.replace(/,/g, '').trim() + ' UTC';
-    const d = new Date(cleaned);
-    return isNaN(d) ? null : d;
+// ── CSV upload fallback ────────────────────────────────────────────
+function parseCSVLine(line){
+  const fields=[];let cur='',inQ=false,i=0;
+  while(i<line.length){
+    const c=line[i];
+    if(inQ){if(c==='"'&&line[i+1]==='"'){cur+='"';i+=2;}else if(c==='"'){inQ=false;i++;}else{cur+=c;i++;}}
+    else{if(c==='"'){inQ=true;i++;}else if(c===','){fields.push(cur.trim());cur='';i++;}else{cur+=c;i++;}}
+  }
+  fields.push(cur.trim());return fields;
+}
+function parseCSV(text){
+  const rows=[];let cur='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){if(c==='"'&&text[i+1]==='"'){cur+='"';i++;}else if(c==='"')inQ=false;else cur+=c;}
+    else{if(c==='"')inQ=true;else if(c==='\r'&&text[i+1]==='\n'){rows.push(cur);cur='';i++;}else if(c==='\n'){rows.push(cur);cur='';}else cur+=c;}
+  }
+  if(cur.trim())rows.push(cur);
+  return rows.map(parseCSVLine);
 }
 
-async function buildCache(force = false) {
-    if (!force && _cache && Date.now() - _lastFetch < CACHE_TTL) return _cache;
-    const now = Date.now();
-    const resp = await fetch(METABASE_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!resp.ok) throw new Error('Metabase CSV ' + resp.status);
-    const rawRows = parseCSV(await resp.text());
-    const rows = rawRows.map(r => {
-          const createdRaw = pick(r, 'sku_created_on', 'createdAt', 'created_on');
-          const createdDate = parseMetaDate(createdRaw);
-          return {
-                  sku:             pick(r, 'spin_sku_id', 'sku_id', 'sku'),
-                  spinId:          pick(r, 'ss.spin_id', 'spin_id'),
-                  vin:             pick(r, 'vinName', 'vin_name', 'vin'),
-                  eid:             pick(r, 'enterpriseId', 'enterprise_id'),
-                  entName:         pick(r, 'enterprise_name') || pick(r, 'enterpriseId'),
-                  teamId:          pick(r, 'teamId', 'team_id'),
-                  teamName:        pick(r, 'team_name', 'teamName'),
-                  customerSegment: pick(r, 'customer_segment', 'customerSegment'),
-                  crmStatus:       pick(r, 'crm_status', 'crmStatus'),
-                  assignedTeam:    pick(r, 'qc_user', 'assigned_user_name'),
-                  entEmail:        pick(r, 'CS') || pick(r, 'OB'),
-                  entStage:        pick(r, 'stage'),
-                  finalStatus:     pick(r, 'status', 'final_status'),
-                  inputType:       pick(r, 'input_type', 'inputType'),
-                  createdAt:       createdDate ? createdDate.toISOString() : createdRaw,
-          };
-    }).filter(r => r.crmStatus === 'qc_unassigned');
-            _cache = { rows, total: rows.length, lastSynced: new Date(now).toISOString() };
-    _lastFetch = now;
-    return _cache;
-}
-
-export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-    if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-    try {
-          const force = req.query.force === '1';
-          if (force) { _cache = null; _lastFetch = 0; }
-          const data = await buildCache(force);
-          res.status(200).json(data);
-    } catch (err) {
-          res.status(500).json({ error: err.message });
+function handleUpload(evt){
+  const file=evt.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const parsed=parseCSV(e.target.result);
+    if(parsed.length<2){alert('CSV appears empty');return;}
+    const hdrs=parsed[0].map(h=>h.replace(/^"|"$/g,'').trim());
+    const pk=(r,...ns)=>{for(const n of ns){const v=r[n];if(v?.trim())return v.trim();}return '';};
+    function parseMetaDate(s){
+      if(!s)return null;
+      if(s.includes('T')||s.match(/^\d{4}-\d{2}-\d{2}/))return new Date(s);
+      const cleaned=s.replace(/,/g,'').trim();
+      const d=new Date(cleaned);return isNaN(d)?null:d;
     }
+    const allRows=parsed.slice(1).filter(vals=>vals.some(v=>v.trim())).map(vals=>{
+      const r={};hdrs.forEach((h,i)=>r[h]=vals[i]??'');
+      const createdRaw=pk(r,'createdAt','created_at','created_on','vinCreation');
+      const createdDate=parseMetaDate(createdRaw);
+      return{
+        sku:pk(r,'spin_sku_id','sku','sku_id'),
+        spinId:pk(r,'ss.spin_id','spin_id','spinId'),
+        vin:pk(r,'vinName','vin_name','vin'),
+        eid:pk(r,'enterpriseId','enterprise_id'),
+        entName:pk(r,'enterprise_name','enterpriseName')||pk(r,'enterpriseId'),
+        teamId:pk(r,'teamId','team_id'),
+        teamName:pk(r,'team_name','teamName'),
+        customerSegment:pk(r,'customer_segment','customerSegment'),
+        crmStatus:pk(r,'crm_status','crmStatus'),
+        assignedTeam:pk(r,'qc_user','assigned_user_name','assignedTeamName'),
+        entEmail:pk(r,'CS')||pk(r,'OB'),
+        entStage:pk(r,'stage'),
+        finalStatus:pk(r,'final_status','finalStatus','status'),
+        inputType:pk(r,'input_type','inputType'),
+        platform:pk(r,'platform'),
+        make:pk(r,'make'),model:pk(r,'model'),year:pk(r,'year'),
+        thumbnail:pk(r,'thumbnail_url','thumbnail'),
+        vdpUrl:pk(r,'vdp_url','vdpUrl'),
+        imgCount:parseInt(pk(r,'image_count'))||0,
+        overallScore:pk(r,'overall_score','overallScore'),
+        vinScore:pk(r,'vin_score','vinScore'),
+        createdAt:createdDate?createdDate.toISOString():createdRaw,
+      };
+    });
+    // All rows from this query are already QC pending
+    const rows=allRows;
+    // Dedup by SKU
+    const seen=new Set();
+    const deduped=rows.filter(r=>{const key=r.sku||r.vin||JSON.stringify(r);if(seen.has(key))return false;seen.add(key);return true;});
+    document.getElementById('uf').style.display='none';
+    document.getElementById('loading').style.display='flex';
+    setTimeout(()=>{
+      document.getElementById('loading').style.display='none';
+      document.getElementById('dash').style.display='block';
+      _rows=deduped;
+      renderTypeCards();rerender();
+    },200);
+  };
+  reader.readAsText(file);
 }
+
+// ── Local cache helpers ────────────────────────────────────────────
+const LS_KEY = '360-pend-cache';
+const LS_VER = 'v3';
+const LS_TTL = 10 * 60 * 1000;
+
+function saveToCache(rows, lastSynced) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ rows, lastSynced, savedAt: Date.now(), ver: LS_VER }));
+  } catch(e) {}
+}
+function loadFromCache() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.rows?.length || parsed.ver !== LS_VER) return null;
+    return parsed;
+  } catch(e) { return null; }
+}
+function normaliseRows(rawRows) {
+  return rawRows.map(r=>({
+    sku:r.sku||'',
+    spinId:r.spinId||'',
+    vin:r.vin||'',
+    eid:r.eid||'',
+    entName:r.entName||r.eid||'',
+    teamId:r.teamId||'',
+    teamName:r.teamName||'',
+    customerSegment:(r.customerSegment||'').trim(),
+    crmStatus:(r.crmStatus||'').trim(),
+    assignedTeam:r.assignedTeam||'',
+    entEmail:r.entEmail||'',
+    entStage:r.entStage||'',
+    finalStatus:r.finalStatus||'',
+    inputType:r.inputType||'',
+    platform:r.platform||'',
+    make:r.make||'',model:r.model||'',year:r.year||'',
+    thumbnail:r.thumbnail||'',
+    vdpUrl:r.vdpUrl||'',
+    imgCount:r.imgCount||0,
+    overallScore:r.overallScore||'',
+    vinScore:r.vinScore||'',
+    createdAt:r.createdAt||'',
+  }));
+}
+let _lastSynced = null;
+
+function showData(rows, lastSynced, isStale) {
+  _rows = normaliseRows(rows);
+  renderTypeCards();
+  rerender();
+  requestAnimationFrame(() => {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('uf').style.display = 'none';
+    // Only show dash if pendency tab is active
+    if (_activeTab === 'pendency') {
+      document.getElementById('dash').style.display = 'block';
+    }
+    if (lastSynced) {
+      _lastSynced = lastSynced;
+      const label = isStale ? '⚡ Cached ' : 'Synced ';
+      document.getElementById('sy').textContent = label + new Date(lastSynced).toLocaleTimeString();
+    }
+  });
+}
+
+// ── Load data ──────────────────────────────────────────────────────
+async function loadData(){
+  // Show loader only if pendency tab is active
+  if (_activeTab === 'pendency') {
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('dash').style.display = 'none';
+    document.getElementById('uf').style.display = 'none';
+  }
+  document.getElementById('st-text').textContent = 'Loading…';
+
+  const cached = loadFromCache();
+  if (cached) {
+    // Use cache to render but still show loader until done
+    showData(cached.rows, cached.lastSynced, true);
+    document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
+    startAutoRefresh();
+    // Silently fetch fresh in background
+    fetchFresh(false);
+    return;
+  }
+
+  // No cache — fetch fresh
+  await fetchFresh(true);
+  startAutoRefresh();
+}
+
+function setLoadStep(msg){
+  const el=document.getElementById('load-steps');
+  if(el){const d=document.createElement('div');d.textContent='✓ '+msg;el.appendChild(d);}
+}
+async function fetchFresh(showSpinner) {
+  try {
+    if(showSpinner){
+      document.getElementById('load-steps').innerHTML='';
+      document.getElementById('load-label').textContent='FETCHING 360 QC DATA';
+    }
+    const r = await fetch(API);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setLoadStep('Data received');
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    if (!j.rows?.length) throw new Error('0 rows');
+    setLoadStep(`${j.rows.length} VINs loaded`);
+    saveToCache(j.rows, j.lastSynced);
+    setLoadStep('Processing…');
+    showData(j.rows, j.lastSynced, false);
+    document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
+  } catch(err) {
+    if (!_rows.length) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('uf').style.display = 'block';
+      document.getElementById('uf-msg').textContent = `Fetch failed: ${err.message}. Upload a CSV manually below.`;
+    } else {
+      document.getElementById('st-text').textContent = '⚠ Fetch failed — showing cached data';
+    }
+  }
+}
+
+// ── VIN Wise download ──────────────────────────────────────────────
+const VW_KEYS   = ['sku','vin','entName','assignedTeam','customerSegment','crmStatus','inputType','createdAt'];
+const VW_LABELS = ['SKU ID','VIN','Enterprise','Assigned Team','Segment','CRM Status','Input Type','Created At'];
+
+function dlVwData(section, fmt) {
+  const now = Date.now();
+  const getAge = r => {
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
+    const h = (now - d) / 3600000; return h >= 0 ? h : null;
+  };
+  const rows = [..._rows].filter(r => {
+    const h = getAge(r);
+    return section === 'below' ? (h != null && h < 6) : (h != null && h >= 6);
+  }).sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+
+  // Add Age and Breach columns
+  const extraKeys   = section === 'below' ? ['age','sla']       : ['age','breachedBy'];
+  const extraLabels = section === 'below' ? ['Age (hrs)','SLA'] : ['Age (hrs)','Breached by (hrs)'];
+  const allKeys   = [...VW_KEYS, ...extraKeys];
+  const allLabels = [...VW_LABELS, ...extraLabels];
+
+  const enriched = rows.map(r => {
+    const h = getAge(r);
+    const extra = section === 'below'
+      ? { age: h != null ? h.toFixed(2) : '', sla: h != null ? (6 - h).toFixed(2) + 'h remaining' : '' }
+      : { age: h != null ? h.toFixed(2) : '', breachedBy: h != null ? (h - 6).toFixed(2) : '' };
+    return { ...r, ...extra };
+  });
+
+  const filename = section === 'below' ? '360-vin-below-6h' : '360-vin-above-6h-breached';
+
+  if (fmt === 'csv') {
+    const csv = [allLabels.join(','), ...enriched.map(r =>
+      allKeys.map(k => { const v = String(r[k] ?? ''); return /[,"]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; }).join(',')
+    )].join('\n');
+    dl(new Blob([csv], {type:'text/csv'}), filename + '.csv');
+  } else {
+    // Excel via HTML table blob
+    const html = `<html><head><meta charset="UTF-8"></head><body><table>
+      <tr>${allLabels.map(l => `<th>${l}</th>`).join('')}</tr>
+      ${enriched.map(r => `<tr>${allKeys.map(k => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`).join('')}
+    </table></body></html>`;
+    dl(new Blob([html], {type:'application/vnd.ms-excel'}), filename + '.xls');
+  }
+}
+
+
+const VW_AUTO_MS = 1 * 60 * 1000;
+const VW_RING_CIRC = 87.96;
+let _vwTimer = null, _vwStart = Date.now();
+
+function fmtAge(h) {
+  if (h == null) return '—';
+  const hrs = Math.floor(h), mins = Math.round((h - hrs) * 60);
+  return hrs + 'h ' + String(mins).padStart(2,'0') + 'm';
+}
+
+let _vwBelowSort = 'desc', _vwAboveSort = 'desc';
+
+function renderVinWise() {
+  const now = Date.now();
+  const getAge = r => {
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
+    const h = (now - d) / 3600000; return h >= 0 ? h : null;
+  };
+
+  const rows = [..._rows].filter(r => !r.crmStatus || r.crmStatus === 'qc_unassigned');
+  const below = rows.filter(r => { const h = getAge(r); return h != null && h < 6; })
+                    .sort((a,b) => _vwBelowSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
+  const above = rows.filter(r => { const h = getAge(r); return h != null && h >= 6; })
+                    .sort((a,b) => _vwAboveSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
+
+  document.getElementById('vw-below-count').textContent = below.length.toLocaleString();
+  document.getElementById('vw-above-count').textContent = above.length.toLocaleString();
+  document.getElementById('vw-tag').textContent = `VIN WISE · ${rows.length.toLocaleString()} VINs`;
+  document.getElementById('vw-sync').textContent = _lastSynced ? 'Synced ' + new Date(_lastSynced).toLocaleTimeString() : 'Updated ' + new Date().toLocaleTimeString();
+
+  // Update sort icons
+  const bi = document.getElementById('vw-below-sort-icon');
+  const ai = document.getElementById('vw-above-sort-icon');
+  if (bi) bi.textContent = _vwBelowSort === 'desc' ? '↓' : '↑';
+  if (ai) ai.textContent = _vwAboveSort === 'desc' ? '↓' : '↑';
+
+  // Below 6h table
+  const bTbody = document.getElementById('vw-below-tbody');
+  if (!below.length) {
+    bTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No VINs below 6h</td></tr>';
+  } else {
+    bTbody.innerHTML = below.map((r,i) => {
+      const h = getAge(r);
+      const remaining = 6 - h;
+      const isWarning = remaining <= 0.5; // within 30 min
+      const bg = isWarning ? 'background:rgba(245,166,35,.08)' : (i%2===0?'':'background:var(--card2)');
+      const slaEl = isWarning
+        ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 7px;border-radius:4px;white-space:nowrap;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m left</span>`
+        : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 7px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
+      return `<tr style="border-top:1px solid var(--rim);${bg}">
+        <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2);cursor:copy">${(r.sku||'').substring(0,12)}…</td>
+        <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:7px 10px;color:var(--t1);font-weight:500;cursor:copy">${r.vin||'—'}</td>
+        <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy enterprise" style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:copy">${r.entName||'—'}</td>
+        <td style="padding:7px 10px;color:${isWarning?'var(--amber)':'var(--t2)'};font-weight:${isWarning?'600':'400'};font-family:var(--f-mono)">${fmtAge(h)}</td>
+        <td style="padding:7px 10px">${slaEl}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Above 6h table
+  const aTbody = document.getElementById('vw-above-tbody');
+  if (!above.length) {
+    aTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No SLA breaches 🎉</td></tr>';
+  } else {
+    aTbody.innerHTML = above.map((r,i) => {
+      const h = getAge(r);
+      const breach = h - 6;
+      return `<tr style="border-top:1px solid rgba(240,81,110,.15);${i%2===0?'':'background:rgba(240,81,110,.04)'}">
+        <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2);cursor:copy">${(r.sku||'').substring(0,12)}…</td>
+        <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:7px 10px;color:var(--t1);font-weight:500;cursor:copy">${r.vin||'—'}</td>
+        <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy enterprise" style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:copy">${r.entName||'—'}</td>
+        <td style="padding:7px 10px;color:var(--red);font-weight:600;font-family:var(--f-mono)">${fmtAge(h)}</td>
+        <td style="padding:7px 10px;color:var(--red);font-family:var(--f-mono);font-weight:600">+${fmtAge(breach)}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function updateVwRing() {
+  const elapsed = Date.now() - _vwStart;
+  const progress = Math.min(elapsed / VW_AUTO_MS, 1);
+  const remaining = Math.max(VW_AUTO_MS - elapsed, 0);
+  const ring = document.getElementById('vw-ring');
+  const label = document.getElementById('vw-ring-label');
+  if (!ring || !label) return;
+  ring.style.strokeDashoffset = (VW_RING_CIRC * progress).toFixed(2);
+  const ts = Math.ceil(remaining / 1000);
+  label.textContent = String(Math.floor(ts/60)).padStart(2,'0') + ':' + String(ts%60).padStart(2,'0');
+  ring.style.stroke = remaining < 15000 ? 'var(--red)' : 'var(--teal)';
+}
+
+let _vwFetching = false;
+
+function startVwTimer() {
+  clearInterval(_vwTimer);
+  _vwStart = Date.now();
+  _vwTimer = setInterval(() => {
+    updateVwRing();
+    if (!_vwFetching && Date.now() - _vwStart >= VW_AUTO_MS) {
+      _vwFetching = true;
+      _vwStart = Date.now(); // reset immediately so ring restarts
+      fetchFresh(false).then(() => {
+        renderVinWise();
+      }).finally(() => { _vwFetching = false; });
+    }
+  }, 1000);
+}
+
+// ── Tab switching ──────────────────────────────────────────────────
+
+function switchTab(tab) {
+  _activeTab = tab;
+  const isPendency = tab === 'pendency';
+
+  // Tab button styles
+  const tP = document.getElementById('tab-pendency');
+  const tV = document.getElementById('tab-vinwise');
+  if (tP) { tP.style.background = isPendency ? 'var(--teal)' : 'transparent'; tP.style.color = isPendency ? '#fff' : 'var(--t2)'; }
+  if (tV) { tV.style.background = !isPendency ? 'var(--teal)' : 'transparent'; tV.style.color = !isPendency ? '#fff' : 'var(--t2)'; }
+
+  // Show correct refresh group
+  const mainRg = document.getElementById('main-refresh-group');
+  const vwRg   = document.getElementById('vw-refresh-group');
+  if (mainRg) mainRg.style.display = isPendency ? 'flex' : 'none';
+  if (vwRg)   vwRg.style.display   = !isPendency ? 'flex' : 'none';
+
+  // Show/hide screens
+  const dash = document.getElementById('dash');
+  const uf   = document.getElementById('uf');
+  const load = document.getElementById('loading');
+  const vw   = document.getElementById('vw-screen');
+
+  if (isPendency) {
+    if (vw) vw.style.display = 'none';
+    if (dash && dash.dataset.wasVisible === '1') dash.style.display = 'block';
+    if (uf && uf.dataset.wasVisible === '1') uf.style.display = 'block';
+    clearInterval(_vwTimer);
+    _vwFetching = false;
+  } else {
+    if (dash) { dash.dataset.wasVisible = dash.style.display !== 'none' ? '1' : '0'; dash.style.display = 'none'; }
+    if (uf)   { uf.dataset.wasVisible   = uf.style.display   !== 'none' ? '1' : '0'; uf.style.display   = 'none'; }
+    if (load) load.style.display = 'none';
+    if (vw) vw.style.display = 'block';
+    // Always fetch fresh data when switching to VIN wise
+    _vwFetching = true;
+    fetchFresh(false).then(() => {
+      renderVinWise();
+    }).finally(() => {
+      _vwFetching = false;
+      startVwTimer();
+    });
+  }
+}
+
+function openVinWise() { switchTab('vinwise'); }
+function closeVinWise() { switchTab('pendency'); }
+
+function refreshVinWise() {
+  if (_vwFetching) return;
+  clearInterval(_vwTimer);
+  _vwFetching = true;
+  const btn = document.querySelector('#vw-refresh-group .refresh-btn');
+  if (btn) btn.style.opacity = '0.5';
+  fetchFresh(false).then(() => {
+    renderVinWise();
+  }).finally(() => {
+    _vwFetching = false;
+    if (btn) btn.style.opacity = '';
+    startVwTimer();
+  });
+}
+
+loadData();
+</script>
+
+<!-- VIN Wise Tab Screen -->
+<div id="vw-screen" style="display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="tag tag-teal" id="vw-tag">LOADING</span>
+      <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px">BELOW 6H · WITHIN SLA</div>
+        <div style="font-size:22px;font-weight:800;color:var(--green);letter-spacing:-1px;line-height:1.2" id="vw-below-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--green);opacity:.7">VINs on track</div>
+    </div>
+    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px">ABOVE 6H · SLA BREACHED</div>
+        <div style="font-size:22px;font-weight:800;color:var(--red);letter-spacing:-1px;line-height:1.2" id="vw-above-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--red);opacity:.7">VINs breached</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
+          Below 6h
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
+        </div>
+        <button onclick="dlVwData('below','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,200,150,.3);background:rgba(0,200,150,.06);color:var(--green);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(0,200,150,.15)'" onmouseout="this.style.background='rgba(0,200,150,.06)'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+          </button>
+      </div>
+      <div class="tbl-shell"><div class="tbl-scroll">
+        <table>
+          <thead><tr>
+            <th style="min-width:110px">SKU ID</th>
+            <th>VIN</th>
+            <th>Enterprise</th>
+            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none" id="vw-below-age-th">AGE <span id="vw-below-sort-icon">↓</span></th>
+            <th>SLA</th>
+          </tr></thead>
+          <tbody id="vw-below-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+          Above 6h — SLA breached
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
+        </div>
+        <button onclick="dlVwData('above','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(240,81,110,.3);background:rgba(240,81,110,.06);color:var(--red);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(240,81,110,.15)'" onmouseout="this.style.background='rgba(240,81,110,.06)'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+          </button>
+      </div>
+      <div class="tbl-shell" style="border-color:rgba(240,81,110,.3)"><div class="tbl-scroll">
+        <table>
+          <thead style="background:rgba(240,81,110,.08)"><tr style="background:rgba(240,81,110,.08);border-bottom-color:rgba(240,81,110,.2)">
+            <th style="min-width:110px;color:var(--red)">SKU ID</th>
+            <th style="color:var(--red)">VIN</th>
+            <th style="color:var(--red)">Enterprise</th>
+            <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)" id="vw-above-age-th">AGE <span id="vw-above-sort-icon">↓</span></th>
+            <th style="color:var(--red)">Breached by</th>
+          </tr></thead>
+          <tbody id="vw-above-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
