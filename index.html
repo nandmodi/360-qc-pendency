@@ -18,7 +18,7 @@ button{font-family:'Inter',sans-serif;cursor:pointer;border:none;background:none
 .mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;}
 a{color:inherit;text-decoration:none}
 .page{max-width:1540px;margin:0 auto;padding:0 28px 100px;position:relative;z-index:1}
-.hdr-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--rim);box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:16px}
+.hdr-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--rim);box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:8px}
 .hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;padding:10px 28px;max-width:1540px;margin:0 auto;}
 .hdr-brand{display:flex;align-items:center;gap:12px}
 .hdr-logo{height:54px;width:auto;flex-shrink:0;object-fit:contain;}
@@ -811,17 +811,14 @@ function renderDrawerRows(){
     const freshAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
     const ageStr=(h=>{return h!=null?h.toFixed(1)+'h':'—';})(freshAge(r));
     const ageColor=(h=>{return h!=null&&h>12?'var(--red)':h!=null&&h>6?'var(--amber)':'inherit';})(freshAge(r));
-    const skuSafe = skuVal.replace(/'/g,"\\'");
-    const vinSafe = vinVal.replace(/'/g,"\\'");
-    const entSafe = entVal.replace(/'/g,"\\'");
     return`<tr>
-      <td onclick="event.stopPropagation();copyCell('${skuSafe}',this)" title="Click to copy SKU" style="cursor:copy">
+      <td onclick="event.stopPropagation();copyCell(this.dataset.copy,this)" data-copy="${skuVal}" title="Click to copy SKU" style="cursor:copy">
         <div class="vin-cell">
         ${r.thumbnail?`<img class="thumb-img" src="${r.thumbnail}" loading="lazy" onerror="this.style.display='none'">`:''}
         <span style="font-family:var(--f-mono);font-size:9px">${skuVal||'—'}</span>
       </div></td>
-      <td style="font-family:var(--f-mono);font-size:9px;cursor:copy" onclick="event.stopPropagation();copyCell('${vinSafe}',this)" title="Click to copy VIN">${vinVal||'—'}</td>
-      <td style="font-size:10px;cursor:copy" onclick="event.stopPropagation();copyCell('${entSafe}',this)" title="Click to copy enterprise">${entVal||'—'}</td>
+      <td style="font-family:var(--f-mono);font-size:9px;cursor:copy" onclick="event.stopPropagation();copyCell(this.dataset.copy,this)" data-copy="${vinVal}" title="Click to copy VIN">${vinVal||'—'}</td>
+      <td style="font-size:10px;cursor:copy" onclick="event.stopPropagation();copyCell(this.dataset.copy,this)" data-copy="${entVal.replace(/"/g,'&quot;')}" title="Click to copy enterprise">${entVal||'—'}</td>
       <td style="font-size:10px">${teamVal||'—'} ${cbBtn(teamVal,'Copy team')}</td>
       <td style="font-size:10px;color:var(--teal);font-family:var(--f-mono)">${r.assignedTeam||'—'}</td>
       <td>${itypeChip(r.inputType)}</td>
