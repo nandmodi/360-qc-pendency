@@ -1069,11 +1069,13 @@ function showData(rows, lastSynced, isStale) {
   _rows = normaliseRows(rows);
   renderTypeCards();
   rerender();
-  // Hide loader and show dash only after render is complete
   requestAnimationFrame(() => {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('uf').style.display = 'none';
-    document.getElementById('dash').style.display = 'block';
+    // Only show dash if pendency tab is active
+    if (_activeTab === 'pendency') {
+      document.getElementById('dash').style.display = 'block';
+    }
     if (lastSynced) {
       const label = isStale ? '⚡ Cached ' : 'Synced ';
       document.getElementById('sy').textContent = label + new Date(lastSynced).toLocaleTimeString();
@@ -1083,10 +1085,12 @@ function showData(rows, lastSynced, isStale) {
 
 // ── Load data ──────────────────────────────────────────────────────
 async function loadData(){
-  // Always show loader first
-  document.getElementById('loading').style.display = 'flex';
-  document.getElementById('dash').style.display = 'none';
-  document.getElementById('uf').style.display = 'none';
+  // Show loader only if pendency tab is active
+  if (_activeTab === 'pendency') {
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('dash').style.display = 'none';
+    document.getElementById('uf').style.display = 'none';
+  }
   document.getElementById('st-text').textContent = 'Loading…';
 
   const cached = loadFromCache();
