@@ -203,7 +203,10 @@ td:last-child{padding-right:16px;text-align:right}
     </div>
   </div>
   <div class="hdr-center">
-    <div class="live-badge"><span class="live-dot"></span><span id="st-text">Loading…</span></div>
+    <div style="display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--rim);border-radius:10px;padding:4px">
+      <button id="tab-pendency" onclick="switchTab('pendency')" style="padding:6px 18px;border-radius:7px;font-size:12px;font-weight:600;font-family:var(--f-mono);border:none;cursor:pointer;transition:all .15s;background:var(--teal);color:#fff">QC Pendency</button>
+      <button id="tab-vinwise" onclick="switchTab('vinwise')" style="padding:6px 18px;border-radius:7px;font-size:12px;font-weight:600;font-family:var(--f-mono);border:none;cursor:pointer;transition:all .15s;background:transparent;color:var(--t2)">VIN Wise</button>
+    </div>
   </div>
   <div class="hdr-actions">
     <span class="sync-time" id="sy"></span>
@@ -213,7 +216,7 @@ td:last-child{padding-right:16px;text-align:right}
         <circle class="refresh-ring-bg" cx="17" cy="17" r="14"/>
         <circle class="refresh-ring-fill" id="ring-fill" cx="17" cy="17" r="14" stroke-dasharray="87.96" stroke-dashoffset="0"/>
       </svg>
-      <div class="refresh-ring-label" id="ring-label">15:00</div>
+      <div class="refresh-ring-label" id="ring-label">3:00</div>
     </div>
     <button class="refresh-btn" onclick="manualRefresh()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -906,7 +909,7 @@ function toggleTheme(){
 (()=>{const s=localStorage.getItem('360-pend-theme');if(s){document.documentElement.setAttribute('data-theme',s);document.getElementById('tbtn').textContent=s==='dark'?'🌙':'☀️';setLogo(s);}else{setLogo('dark');}})();
 
 // ── Auto-refresh ───────────────────────────────────────────────────
-const AUTO_MS=15*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
+const AUTO_MS=3*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
 const RING_CIRC=87.96;
 function startAutoRefresh(){
   clearInterval(_refreshTimer);_refreshStart=Date.now();updateRing();
@@ -1134,7 +1137,229 @@ async function fetchFresh(showSpinner) {
   }
 }
 
+// ── VIN Wise Screen ────────────────────────────────────────────────
+const VW_AUTO_MS = 1 * 60 * 1000;
+const VW_RING_CIRC = 69.1;
+let _vwTimer = null, _vwStart = Date.now();
+
+function fmtAge(h) {
+  if (h == null) return '—';
+  const hrs = Math.floor(h), mins = Math.round((h - hrs) * 60);
+  return hrs + 'h ' + String(mins).padStart(2,'0') + 'm';
+}
+
+function renderVinWise() {
+  const now = Date.now();
+  const getAge = r => {
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
+    const h = (now - d) / 3600000; return h >= 0 ? h : null;
+  };
+
+  const rows = [..._rows];
+  const below = rows.filter(r => { const h = getAge(r); return h != null && h < 6; })
+                    .sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+  const above = rows.filter(r => { const h = getAge(r); return h != null && h >= 6; })
+                    .sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+
+  document.getElementById('vw-below-count').textContent = below.length.toLocaleString();
+  document.getElementById('vw-above-count').textContent = above.length.toLocaleString();
+  document.getElementById('vw-tag').textContent = `VIN WISE · ${rows.length.toLocaleString()} VINs`;
+  document.getElementById('vw-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+  // Below 6h table
+  const bTbody = document.getElementById('vw-below-tbody');
+  if (!below.length) {
+    bTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No VINs below 6h</td></tr>';
+  } else {
+    bTbody.innerHTML = below.map((r,i) => {
+      const h = getAge(r);
+      const remaining = 6 - h;
+      const isWarning = remaining <= 0.5; // within 30 min
+      const bg = isWarning ? 'background:rgba(245,166,35,.08)' : (i%2===0?'':'background:var(--card2)');
+      const slaEl = isWarning
+        ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 7px;border-radius:4px;white-space:nowrap;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m left</span>`
+        : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 7px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
+      return `<tr style="border-top:1px solid var(--rim);${bg}">
+        <td style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2)">${(r.sku||'').substring(0,12)}…</td>
+        <td style="padding:7px 10px;color:var(--t1);font-weight:500">${r.vin||'—'}</td>
+        <td style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+        <td style="padding:7px 10px;color:${isWarning?'var(--amber)':'var(--t2)'};font-weight:${isWarning?'600':'400'};font-family:var(--f-mono)">${fmtAge(h)}</td>
+        <td style="padding:7px 10px">${slaEl}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Above 6h table
+  const aTbody = document.getElementById('vw-above-tbody');
+  if (!above.length) {
+    aTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No SLA breaches 🎉</td></tr>';
+  } else {
+    aTbody.innerHTML = above.map((r,i) => {
+      const h = getAge(r);
+      const breach = h - 6;
+      return `<tr style="border-top:1px solid rgba(240,81,110,.15);${i%2===0?'':'background:rgba(240,81,110,.04)'}">
+        <td style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2)">${(r.sku||'').substring(0,12)}…</td>
+        <td style="padding:7px 10px;color:var(--t1);font-weight:500">${r.vin||'—'}</td>
+        <td style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+        <td style="padding:7px 10px;color:var(--red);font-weight:600;font-family:var(--f-mono)">${fmtAge(h)}</td>
+        <td style="padding:7px 10px;color:var(--red);font-family:var(--f-mono);font-weight:600">+${fmtAge(breach)}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function updateVwRing() {
+  const elapsed = Date.now() - _vwStart;
+  const progress = Math.min(elapsed / VW_AUTO_MS, 1);
+  const remaining = Math.max(VW_AUTO_MS - elapsed, 0);
+  const ring = document.getElementById('vw-ring');
+  const label = document.getElementById('vw-ring-label');
+  if (!ring || !label) return;
+  ring.style.strokeDashoffset = (VW_RING_CIRC * progress).toFixed(2);
+  const ts = Math.ceil(remaining / 1000);
+  label.textContent = String(Math.floor(ts/60)).padStart(2,'0') + ':' + String(ts%60).padStart(2,'0');
+  ring.style.stroke = remaining < 15000 ? 'var(--red)' : 'var(--teal)';
+}
+
+function startVwTimer() {
+  clearInterval(_vwTimer);
+  _vwStart = Date.now();
+  _vwTimer = setInterval(() => {
+    updateVwRing();
+    if (Date.now() - _vwStart >= VW_AUTO_MS) {
+      // Fetch fresh data then re-render
+      fetchFresh(false).then(() => { renderVinWise(); _vwStart = Date.now(); });
+    }
+  }, 1000);
+}
+
+// ── Tab switching ──────────────────────────────────────────────────
+let _activeTab = 'pendency';
+
+function switchTab(tab) {
+  _activeTab = tab;
+  const isPendency = tab === 'pendency';
+
+  // Tab button styles
+  const tP = document.getElementById('tab-pendency');
+  const tV = document.getElementById('tab-vinwise');
+  if (tP) { tP.style.background = isPendency ? 'var(--teal)' : 'transparent'; tP.style.color = isPendency ? '#fff' : 'var(--t2)'; }
+  if (tV) { tV.style.background = !isPendency ? 'var(--teal)' : 'transparent'; tV.style.color = !isPendency ? '#fff' : 'var(--t2)'; }
+
+  // Show/hide screens
+  const dash = document.getElementById('dash');
+  const uf   = document.getElementById('uf');
+  const load = document.getElementById('loading');
+  const vw   = document.getElementById('vw-screen');
+
+  if (isPendency) {
+    if (vw) vw.style.display = 'none';
+    // restore pendency visibility
+    if (dash && dash.dataset.wasVisible === '1') dash.style.display = 'block';
+    if (uf && uf.dataset.wasVisible === '1') uf.style.display = 'block';
+    // stop VIN wise timer
+    clearInterval(_vwTimer);
+  } else {
+    // hide pendency screens
+    if (dash) { dash.dataset.wasVisible = dash.style.display !== 'none' ? '1' : '0'; dash.style.display = 'none'; }
+    if (uf)   { uf.dataset.wasVisible   = uf.style.display   !== 'none' ? '1' : '0'; uf.style.display   = 'none'; }
+    if (load) load.style.display = 'none';
+    if (vw) vw.style.display = 'block';
+    renderVinWise();
+    startVwTimer();
+  }
+}
+
+function openVinWise() { switchTab('vinwise'); }
+function closeVinWise() { switchTab('pendency'); }
+
+function refreshVinWise() {
+  clearInterval(_vwTimer);
+  _vwStart = Date.now();
+  fetchFresh(false).then(() => { renderVinWise(); startVwTimer(); });
+}
+
 loadData();
 </script>
+
+<!-- VIN Wise Tab Screen -->
+<div id="vw-screen" style="display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="tag tag-teal" id="vw-tag">LOADING</span>
+      <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="live-badge"><span class="live-dot"></span><span id="vw-live-text">VIN Wise</span></div>
+      <div class="refresh-ring" title="Auto-refresh 1min" style="width:28px;height:28px;flex-shrink:0">
+        <svg viewBox="0 0 28 28" width="28" height="28" style="position:absolute;inset:0;transform:rotate(-90deg)">
+          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="14" cy="14" r="11" stroke="var(--rim)"/>
+          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="14" cy="14" r="11" stroke="var(--teal)" id="vw-ring" stroke-dasharray="69.1" stroke-dashoffset="0"/>
+        </svg>
+        <div class="refresh-ring-label" id="vw-ring-label" style="font-size:6px">1:00</div>
+      </div>
+      <button class="refresh-btn" onclick="refreshVinWise()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:12px;padding:16px 20px">
+      <div style="font-size:10px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px;margin-bottom:6px">BELOW 6H · WITHIN SLA</div>
+      <div style="font-size:32px;font-weight:800;color:var(--green);letter-spacing:-1.5px" id="vw-below-count">0</div>
+      <div style="font-size:11px;color:var(--green);margin-top:2px;opacity:.7">VINs on track</div>
+    </div>
+    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:12px;padding:16px 20px">
+      <div style="font-size:10px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px;margin-bottom:6px">ABOVE 6H · SLA BREACHED</div>
+      <div style="font-size:32px;font-weight:800;color:var(--red);letter-spacing:-1.5px" id="vw-above-count">0</div>
+      <div style="font-size:11px;color:var(--red);margin-top:2px;opacity:.7">VINs breached</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
+        Below 6h
+        <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
+      </div>
+      <div class="tbl-shell"><div class="tbl-scroll">
+        <table>
+          <thead><tr>
+            <th style="min-width:110px">SKU ID</th>
+            <th>VIN</th>
+            <th>Enterprise</th>
+            <th>Age</th>
+            <th>SLA</th>
+          </tr></thead>
+          <tbody id="vw-below-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+        Above 6h — SLA breached
+        <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
+      </div>
+      <div class="tbl-shell" style="border-color:rgba(240,81,110,.3)"><div class="tbl-scroll">
+        <table>
+          <thead><tr style="background:rgba(240,81,110,.08);border-bottom-color:rgba(240,81,110,.2)">
+            <th style="min-width:110px;color:var(--red)">SKU ID</th>
+            <th style="color:var(--red)">VIN</th>
+            <th style="color:var(--red)">Enterprise</th>
+            <th style="color:var(--red)">Age</th>
+            <th style="color:var(--red)">Breached by</th>
+          </tr></thead>
+          <tbody id="vw-above-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
