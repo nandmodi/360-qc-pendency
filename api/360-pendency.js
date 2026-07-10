@@ -5,7 +5,7 @@ const METABASE_CSV_URL =
 
 let _cache = null;
 let _lastFetch = 0;
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
 function parseLine(line) {
       const fields = [];
@@ -88,7 +88,7 @@ async function buildCache(force = false) {
 
 export default async function handler(req, res) {
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+          res.setHeader('Cache-Control', 'no-store');
       if (req.method === 'OPTIONS') { res.status(200).end(); return; }
       try {
               const force = req.query.force === '1';
