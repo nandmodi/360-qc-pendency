@@ -1287,9 +1287,9 @@ function renderVinWise() {
         ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 7px;border-radius:4px;white-space:nowrap;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m left</span>`
         : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 7px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
       return `<tr style="border-top:1px solid var(--rim);${bg}">
-        <td style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2)">${(r.sku||'').substring(0,12)}…</td>
-        <td style="padding:7px 10px;color:var(--t1);font-weight:500">${r.vin||'—'}</td>
-        <td style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+        <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2);cursor:copy">${(r.sku||'').substring(0,12)}…</td>
+        <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:7px 10px;color:var(--t1);font-weight:500;cursor:copy">${r.vin||'—'}</td>
+        <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy enterprise" style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:copy">${r.entName||'—'}</td>
         <td style="padding:7px 10px;color:${isWarning?'var(--amber)':'var(--t2)'};font-weight:${isWarning?'600':'400'};font-family:var(--f-mono)">${fmtAge(h)}</td>
         <td style="padding:7px 10px">${slaEl}</td>
       </tr>`;
@@ -1305,9 +1305,9 @@ function renderVinWise() {
       const h = getAge(r);
       const breach = h - 6;
       return `<tr style="border-top:1px solid rgba(240,81,110,.15);${i%2===0?'':'background:rgba(240,81,110,.04)'}">
-        <td style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2)">${(r.sku||'').substring(0,12)}…</td>
-        <td style="padding:7px 10px;color:var(--t1);font-weight:500">${r.vin||'—'}</td>
-        <td style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+        <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2);cursor:copy">${(r.sku||'').substring(0,12)}…</td>
+        <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:7px 10px;color:var(--t1);font-weight:500;cursor:copy">${r.vin||'—'}</td>
+        <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy enterprise" style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:copy">${r.entName||'—'}</td>
         <td style="padding:7px 10px;color:var(--red);font-weight:600;font-family:var(--f-mono)">${fmtAge(h)}</td>
         <td style="padding:7px 10px;color:var(--red);font-family:var(--f-mono);font-weight:600">+${fmtAge(breach)}</td>
       </tr>`;
