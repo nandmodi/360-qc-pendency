@@ -1251,6 +1251,8 @@ function fmtAge(h) {
   return hrs + 'h ' + String(mins).padStart(2,'0') + 'm';
 }
 
+let _vwBelowSort = 'desc', _vwAboveSort = 'desc';
+
 function renderVinWise() {
   const now = Date.now();
   const getAge = r => {
@@ -1261,14 +1263,20 @@ function renderVinWise() {
 
   const rows = [..._rows];
   const below = rows.filter(r => { const h = getAge(r); return h != null && h < 6; })
-                    .sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+                    .sort((a,b) => _vwBelowSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
   const above = rows.filter(r => { const h = getAge(r); return h != null && h >= 6; })
-                    .sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+                    .sort((a,b) => _vwAboveSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
 
   document.getElementById('vw-below-count').textContent = below.length.toLocaleString();
   document.getElementById('vw-above-count').textContent = above.length.toLocaleString();
   document.getElementById('vw-tag').textContent = `VIN WISE · ${rows.length.toLocaleString()} VINs`;
   document.getElementById('vw-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+  // Update sort icons
+  const bi = document.getElementById('vw-below-sort-icon');
+  const ai = document.getElementById('vw-above-sort-icon');
+  if (bi) bi.textContent = _vwBelowSort === 'desc' ? '↓' : '↑';
+  if (ai) ai.textContent = _vwAboveSort === 'desc' ? '↓' : '↑';
 
   // Below 6h table
   const bTbody = document.getElementById('vw-below-tbody');
@@ -1433,7 +1441,7 @@ loadData();
             <th style="min-width:110px">SKU ID</th>
             <th>VIN</th>
             <th>Enterprise</th>
-            <th>Age</th>
+            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none" id="vw-below-age-th">AGE <span id="vw-below-sort-icon">↓</span></th>
             <th>SLA</th>
           </tr></thead>
           <tbody id="vw-below-tbody"></tbody>
@@ -1458,7 +1466,7 @@ loadData();
             <th style="min-width:110px;color:var(--red)">SKU ID</th>
             <th style="color:var(--red)">VIN</th>
             <th style="color:var(--red)">Enterprise</th>
-            <th style="color:var(--red)">Age</th>
+            <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)" id="vw-above-age-th">AGE <span id="vw-above-sort-icon">↓</span></th>
             <th style="color:var(--red)">Breached by</th>
           </tr></thead>
           <tbody id="vw-above-tbody"></tbody>
