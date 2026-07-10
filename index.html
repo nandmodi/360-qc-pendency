@@ -234,37 +234,15 @@ td:last-child{padding-right:16px;text-align:right}
 <div id="loading"><div class="load-ring"></div><div class="load-label" id="load-label">FETCHING 360 QC DATA</div><div id="load-steps" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:10px;font-family:var(--f-mono);color:var(--t3);text-align:center"></div></div>
 
 <div id="dash" style="display:none">
-  <!-- Overview + In Processing side by side -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:36px;align-items:start">
-
-    <!-- QC Pendency Overview -->
-    <div>
-      <div class="sec-hd">
-        <div class="sec-label"><span class="sec-title">QC Pendency</span><span class="tag tag-teal" id="overview-tag">QC UNASSIGNED</span></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button id="reset-btn" onclick="resetAllFilters()" style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;border:1px solid var(--rim2);background:var(--card2);color:var(--t2);font-size:11px;font-family:var(--f-mono);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--rim2)';this.style.color='var(--t2)'">✕ Reset Filters</button>
-        </div>
-      </div>
-      <div class="metric-strip" id="metrics"></div>
-    </div>
-
-    <!-- In Processing -->
-    <div>
-      <div class="sec-hd">
-        <div class="sec-label">
-          <span class="sec-title">In Processing</span>
-          <span class="tag" style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);color:var(--amber)" id="proc-tag">LOADING</span>
-        </div>
-        <span class="sync-time" id="proc-sy"></span>
-      </div>
-      <div class="metric-strip" id="proc-metrics" style="grid-template-columns:repeat(4,1fr)">
-        <div class="metric skel" style="height:110px"></div>
-        <div class="metric skel" style="height:110px"></div>
-        <div class="metric skel" style="height:110px"></div>
-        <div class="metric skel" style="height:110px"></div>
+  <!-- Overview -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-label"><span class="sec-title">Overview</span><span class="tag tag-teal" id="overview-tag">QC UNASSIGNED</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="reset-btn" onclick="resetAllFilters()" style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:7px;border:1px solid var(--rim2);background:var(--card2);color:var(--t2);font-size:11px;font-family:var(--f-mono);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--rim2)';this.style.color='var(--t2)'">✕ Reset Filters</button>
       </div>
     </div>
-
+    <div class="metric-strip" id="metrics"></div>
   </div>
   <div class="sec">
     <div class="sec-hd"><div class="sec-label"><span class="sec-title">Age Breakdown</span><span class="tag tag-teal" id="hr-tag">CREATED AT</span></div></div>
@@ -383,88 +361,6 @@ td:last-child{padding-right:16px;text-align:right}
 // e.g. 'https://360-tracker-dashboard.vercel.app/api/360-pendency'
 // or '/api/360-pendency' if deploying to same Vercel project
 const API = '/api/360-pendency';
-const PROC_API = '/api/360-processing';
-
-// ── In Processing ──────────────────────────────────────────────────
-const LS_PROC_KEY = '360-proc-cache';
-const LS_PROC_VER = 'v1';
-
-function saveProcCache(rows, lastSynced) {
-  try { localStorage.setItem(LS_PROC_KEY, JSON.stringify({ rows, lastSynced, savedAt: Date.now(), ver: LS_PROC_VER })); } catch(e) {}
-}
-function loadProcCache() {
-  try {
-    const raw = localStorage.getItem(LS_PROC_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    if (!p?.rows?.length || p.ver !== LS_PROC_VER) return null;
-    return p;
-  } catch(e) { return null; }
-}
-
-function renderProcessing(rows, lastSynced) {
-  const now = Date.now();
-  const getAge = r => {
-    if (!r.createdAt) return null;
-    const d = new Date(r.createdAt); if (isNaN(d)) return null;
-    return (now - d) / 3600000;
-  };
-
-  const total = rows.length;
-  const b0  = rows.filter(r => { const h=getAge(r); return h!=null&&h>=0&&h<6; }).length;
-  const b6  = rows.filter(r => { const h=getAge(r); return h!=null&&h>=6&&h<12; }).length;
-  const b12 = rows.filter(r => { const h=getAge(r); return h!=null&&h>=12; }).length;
-
-  const cards = [
-    { label:'Total',  val:total, sub:'All VINs',      color:'var(--teal)',   pct:100,              bar:'var(--teal)' },
-    { label:'0 – 6h', val:b0,   sub:`${total?Math.round(b0/total*100):0}% of total`,  color:'var(--green)',  pct:total?b0/total*100:0,  bar:'var(--green)' },
-    { label:'6 – 12h',val:b6,   sub:`${total?Math.round(b6/total*100):0}% of total`,  color:'var(--amber)',  pct:total?b6/total*100:0,  bar:'var(--amber)' },
-    { label:'12+ h',  val:b12,  sub:`${total?Math.round(b12/total*100):0}% of total`, color:'var(--red)',    pct:total?b12/total*100:0, bar:'var(--red)' },
-  ];
-
-  document.getElementById('proc-metrics').innerHTML = cards.map(c => `
-    <div class="metric">
-      <div class="metric-val" style="color:${c.color};font-size:${c.val>9999?'24px':'32px'}">${c.val.toLocaleString()}</div>
-      <div class="metric-label">${c.label}</div>
-      <div class="metric-sub">${c.sub}</div>
-      <div style="margin-top:10px;height:3px;background:var(--rim);border-radius:2px;overflow:hidden">
-        <div class="proc-bar-fill" style="width:0%;height:100%;background:${c.bar};border-radius:2px;transition:width 1s cubic-bezier(.4,0,.2,1)" data-w="${Math.round(c.pct)}"></div>
-      </div>
-    </div>`).join('');
-
-  setTimeout(() => document.querySelectorAll('.proc-bar-fill').forEach(el => el.style.width = el.dataset.w + '%'), 100);
-
-  document.getElementById('proc-tag').textContent = `IN PROCESSING · ${total.toLocaleString()} VINs`;
-  if (lastSynced) document.getElementById('proc-sy').textContent = 'Synced ' + new Date(lastSynced).toLocaleTimeString();
-}
-
-async function loadProcessing() {
-  const cached = loadProcCache();
-  if (cached) {
-    renderProcessing(cached.rows, cached.lastSynced);
-    // Fetch fresh in background
-    fetchProcessing(false);
-    return;
-  }
-  fetchProcessing(true);
-}
-
-async function fetchProcessing(showSkel) {
-  if (showSkel) {
-    document.getElementById('proc-metrics').innerHTML = Array(4).fill('<div class="metric skel" style="height:110px"></div>').join('');
-  }
-  try {
-    const r = await fetch(PROC_API);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
-    if (j.error) throw new Error(j.error);
-    saveProcCache(j.rows, j.lastSynced);
-    renderProcessing(j.rows, j.lastSynced);
-  } catch(err) {
-    document.getElementById('proc-tag').textContent = '⚠ Failed to load';
-    document.getElementById('proc-metrics').innerHTML = `<div style="grid-column:1/-1;font-size:11px;font-family:var(--f-mono);color:var(--t3);padding:8px 0">Could not fetch processing data: ${err.message}</div>`;
-  }
-}
 
 const BKTS = [
   {l:'0–2h',  k:'b0',  min:0,   max:2,   c:'#2dd4cf'},
@@ -1036,10 +932,8 @@ function updateRing(){
 function manualRefresh(){
   clearInterval(_refreshTimer);
   try{localStorage.removeItem(LS_KEY);}catch(e){}
-  try{localStorage.removeItem(LS_PROC_KEY);}catch(e){}
   document.getElementById('st-text').textContent='Refreshing…';
   fetchFresh(true).then(()=>startAutoRefresh());
-  fetchProcessing(true);
 }
 
 // ── CSV upload fallback ────────────────────────────────────────────
@@ -1241,7 +1135,6 @@ async function fetchFresh(showSpinner) {
 }
 
 loadData();
-loadProcessing();
 </script>
 </body>
 </html>
