@@ -5,7 +5,7 @@ const METABASE_CSV_URL =
 
 let _cache = null;
 let _lastFetch = 0;
-const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+const CACHE_TTL = 0; // no cache - always fetch live
 
 function parseLine(line) {
       const fields = [];
