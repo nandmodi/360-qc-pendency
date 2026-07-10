@@ -213,20 +213,37 @@ td:last-child{padding-right:16px;text-align:right}
       <div class="live-badge" style="font-size:10px;padding:3px 10px"><span class="live-dot"></span><span id="st-text">Loading…</span></div>
     </div>
   </div>
-  <div class="hdr-actions">
+  <div class="hdr-actions" style="gap:4px">
     <span class="sync-time" id="sy"></span>
     <button class="icon-btn" id="tbtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
-    <div class="refresh-ring" title="Auto-refresh">
-      <svg viewBox="0 0 34 34" width="34" height="34">
-        <circle class="refresh-ring-bg" cx="17" cy="17" r="14"/>
-        <circle class="refresh-ring-fill" id="ring-fill" cx="17" cy="17" r="14" stroke-dasharray="87.96" stroke-dashoffset="0"/>
-      </svg>
-      <div class="refresh-ring-label" id="ring-label">3:00</div>
+    <!-- Main refresh — visible on QC Pendency tab -->
+    <div id="main-refresh-group" style="display:flex;align-items:center;gap:0">
+      <div class="refresh-ring" title="Auto-refresh 3min">
+        <svg viewBox="0 0 34 34" width="34" height="34">
+          <circle class="refresh-ring-bg" cx="17" cy="17" r="14"/>
+          <circle class="refresh-ring-fill" id="ring-fill" cx="17" cy="17" r="14" stroke-dasharray="87.96" stroke-dashoffset="0"/>
+        </svg>
+        <div class="refresh-ring-label" id="ring-label">3:00</div>
+      </div>
+      <button class="refresh-btn" onclick="manualRefresh()" style="border-radius:0 8px 8px 0;margin-left:-1px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Refresh
+      </button>
     </div>
-    <button class="refresh-btn" onclick="manualRefresh()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-      Refresh
-    </button>
+    <!-- VIN Wise refresh — visible on VIN Wise tab -->
+    <div id="vw-refresh-group" style="display:none;align-items:center;gap:0">
+      <div class="refresh-ring" title="Auto-refresh 1min" style="width:34px;height:34px;flex-shrink:0">
+        <svg viewBox="0 0 34 34" width="34" height="34" style="position:absolute;inset:0;transform:rotate(-90deg)">
+          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--rim)"/>
+          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--teal)" id="vw-ring" stroke-dasharray="87.96" stroke-dashoffset="0"/>
+        </svg>
+        <div class="refresh-ring-label" id="vw-ring-label">1:00</div>
+      </div>
+      <button class="refresh-btn" onclick="refreshVinWise()" style="border-radius:0 8px 8px 0;margin-left:-1px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        Refresh
+      </button>
+    </div>
   </div>
 </header>
 </div>
@@ -1164,9 +1181,56 @@ async function fetchFresh(showSpinner) {
   }
 }
 
-// ── VIN Wise Screen ────────────────────────────────────────────────
+// ── VIN Wise download ──────────────────────────────────────────────
+const VW_KEYS   = ['sku','vin','entName','assignedTeam','customerSegment','crmStatus','inputType','createdAt'];
+const VW_LABELS = ['SKU ID','VIN','Enterprise','Assigned Team','Segment','CRM Status','Input Type','Created At'];
+
+function dlVwData(section, fmt) {
+  const now = Date.now();
+  const getAge = r => {
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
+    const h = (now - d) / 3600000; return h >= 0 ? h : null;
+  };
+  const rows = [..._rows].filter(r => {
+    const h = getAge(r);
+    return section === 'below' ? (h != null && h < 6) : (h != null && h >= 6);
+  }).sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+
+  // Add Age and Breach columns
+  const extraKeys   = section === 'below' ? ['age','sla']       : ['age','breachedBy'];
+  const extraLabels = section === 'below' ? ['Age (hrs)','SLA'] : ['Age (hrs)','Breached by (hrs)'];
+  const allKeys   = [...VW_KEYS, ...extraKeys];
+  const allLabels = [...VW_LABELS, ...extraLabels];
+
+  const enriched = rows.map(r => {
+    const h = getAge(r);
+    const extra = section === 'below'
+      ? { age: h != null ? h.toFixed(2) : '', sla: h != null ? (6 - h).toFixed(2) + 'h remaining' : '' }
+      : { age: h != null ? h.toFixed(2) : '', breachedBy: h != null ? (h - 6).toFixed(2) : '' };
+    return { ...r, ...extra };
+  });
+
+  const filename = section === 'below' ? '360-vin-below-6h' : '360-vin-above-6h-breached';
+
+  if (fmt === 'csv') {
+    const csv = [allLabels.join(','), ...enriched.map(r =>
+      allKeys.map(k => { const v = String(r[k] ?? ''); return /[,"]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; }).join(',')
+    )].join('\n');
+    dl(new Blob([csv], {type:'text/csv'}), filename + '.csv');
+  } else {
+    // Excel via HTML table blob
+    const html = `<html><head><meta charset="UTF-8"></head><body><table>
+      <tr>${allLabels.map(l => `<th>${l}</th>`).join('')}</tr>
+      ${enriched.map(r => `<tr>${allKeys.map(k => `<td>${r[k] ?? ''}</td>`).join('')}</tr>`).join('')}
+    </table></body></html>`;
+    dl(new Blob([html], {type:'application/vnd.ms-excel'}), filename + '.xls');
+  }
+}
+
+
 const VW_AUTO_MS = 1 * 60 * 1000;
-const VW_RING_CIRC = 69.1;
+const VW_RING_CIRC = 87.96;
 let _vwTimer = null, _vwStart = Date.now();
 
 function fmtAge(h) {
@@ -1274,6 +1338,12 @@ function switchTab(tab) {
   if (tP) { tP.style.background = isPendency ? 'var(--teal)' : 'transparent'; tP.style.color = isPendency ? '#fff' : 'var(--t2)'; }
   if (tV) { tV.style.background = !isPendency ? 'var(--teal)' : 'transparent'; tV.style.color = !isPendency ? '#fff' : 'var(--t2)'; }
 
+  // Show correct refresh group
+  const mainRg = document.getElementById('main-refresh-group');
+  const vwRg   = document.getElementById('vw-refresh-group');
+  if (mainRg) mainRg.style.display = isPendency ? 'flex' : 'none';
+  if (vwRg)   vwRg.style.display   = !isPendency ? 'flex' : 'none';
+
   // Show/hide screens
   const dash = document.getElementById('dash');
   const uf   = document.getElementById('uf');
@@ -1282,13 +1352,10 @@ function switchTab(tab) {
 
   if (isPendency) {
     if (vw) vw.style.display = 'none';
-    // restore pendency visibility
     if (dash && dash.dataset.wasVisible === '1') dash.style.display = 'block';
     if (uf && uf.dataset.wasVisible === '1') uf.style.display = 'block';
-    // stop VIN wise timer
     clearInterval(_vwTimer);
   } else {
-    // hide pendency screens
     if (dash) { dash.dataset.wasVisible = dash.style.display !== 'none' ? '1' : '0'; dash.style.display = 'none'; }
     if (uf)   { uf.dataset.wasVisible   = uf.style.display   !== 'none' ? '1' : '0'; uf.style.display   = 'none'; }
     if (load) load.style.display = 'none';
@@ -1317,20 +1384,6 @@ loadData();
       <span class="tag tag-teal" id="vw-tag">LOADING</span>
       <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <div class="live-badge"><span class="live-dot"></span><span id="vw-live-text">VIN Wise</span></div>
-      <div class="refresh-ring" title="Auto-refresh 1min" style="width:28px;height:28px;flex-shrink:0">
-        <svg viewBox="0 0 28 28" width="28" height="28" style="position:absolute;inset:0;transform:rotate(-90deg)">
-          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="14" cy="14" r="11" stroke="var(--rim)"/>
-          <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="14" cy="14" r="11" stroke="var(--teal)" id="vw-ring" stroke-dasharray="69.1" stroke-dashoffset="0"/>
-        </svg>
-        <div class="refresh-ring-label" id="vw-ring-label" style="font-size:6px">1:00</div>
-      </div>
-      <button class="refresh-btn" onclick="refreshVinWise()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-        Refresh
-      </button>
-    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
@@ -1348,10 +1401,16 @@ loadData();
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     <div>
-      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
-        Below 6h
-        <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
+          Below 6h
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
+        </div>
+        <button onclick="dlVwData('below','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,200,150,.3);background:rgba(0,200,150,.06);color:var(--green);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(0,200,150,.15)'" onmouseout="this.style.background='rgba(0,200,150,.06)'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+          </button>
       </div>
       <div class="tbl-shell"><div class="tbl-scroll">
         <table>
@@ -1367,10 +1426,16 @@ loadData();
       </div></div>
     </div>
     <div>
-      <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
-        Above 6h — SLA breached
-        <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+          Above 6h — SLA breached
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
+        </div>
+        <button onclick="dlVwData('above','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(240,81,110,.3);background:rgba(240,81,110,.06);color:var(--red);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(240,81,110,.15)'" onmouseout="this.style.background='rgba(240,81,110,.06)'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            CSV
+          </button>
       </div>
       <div class="tbl-shell" style="border-color:rgba(240,81,110,.3)"><div class="tbl-scroll">
         <table>
