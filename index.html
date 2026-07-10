@@ -1259,7 +1259,7 @@ function renderVinWise() {
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
 
-  const rows = [..._rows];
+  const rows = [..._rows].filter(r => !r.crmStatus || r.crmStatus === 'qc_unassigned');
   const below = rows.filter(r => { const h = getAge(r); return h != null && h < 6; })
                     .sort((a,b) => _vwBelowSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
   const above = rows.filter(r => { const h = getAge(r); return h != null && h >= 6; })
