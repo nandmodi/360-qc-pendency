@@ -17,7 +17,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
 button{font-family:'Inter',sans-serif;cursor:pointer;border:none;background:none}
 .mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;}
 a{color:inherit;text-decoration:none}
-.page{max-width:1540px;margin:0 auto;padding:0 28px 10px;position:relative;z-index:1}
+.page{max-width:1540px;margin:0 auto;padding:0 28px 100px;position:relative;z-index:1}
 .hdr-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--rim);box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:8px}
 .hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;padding:10px 28px;max-width:1540px;margin:0 auto;}
 .hdr-brand{display:flex;align-items:center;gap:12px}
@@ -1112,6 +1112,8 @@ function normaliseRows(rawRows) {
     createdAt:r.createdAt||'',
   }));
 }
+let _lastSynced = null;
+
 function showData(rows, lastSynced, isStale) {
   _rows = normaliseRows(rows);
   renderTypeCards();
@@ -1124,6 +1126,7 @@ function showData(rows, lastSynced, isStale) {
       document.getElementById('dash').style.display = 'block';
     }
     if (lastSynced) {
+      _lastSynced = lastSynced;
       const label = isStale ? '⚡ Cached ' : 'Synced ';
       document.getElementById('sy').textContent = label + new Date(lastSynced).toLocaleTimeString();
     }
@@ -1265,7 +1268,7 @@ function renderVinWise() {
   document.getElementById('vw-below-count').textContent = below.length.toLocaleString();
   document.getElementById('vw-above-count').textContent = above.length.toLocaleString();
   document.getElementById('vw-tag').textContent = `VIN WISE · ${rows.length.toLocaleString()} VINs`;
-  document.getElementById('vw-sync').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  document.getElementById('vw-sync').textContent = _lastSynced ? 'Synced ' + new Date(_lastSynced).toLocaleTimeString() : 'Updated ' + new Date().toLocaleTimeString();
 
   // Update sort icons
   const bi = document.getElementById('vw-below-sort-icon');
@@ -1328,14 +1331,19 @@ function updateVwRing() {
   ring.style.stroke = remaining < 15000 ? 'var(--red)' : 'var(--teal)';
 }
 
+let _vwFetching = false;
+
 function startVwTimer() {
   clearInterval(_vwTimer);
   _vwStart = Date.now();
   _vwTimer = setInterval(() => {
     updateVwRing();
-    if (Date.now() - _vwStart >= VW_AUTO_MS) {
-      // Fetch fresh data then re-render
-      fetchFresh(false).then(() => { renderVinWise(); _vwStart = Date.now(); });
+    if (!_vwFetching && Date.now() - _vwStart >= VW_AUTO_MS) {
+      _vwFetching = true;
+      _vwStart = Date.now(); // reset immediately so ring restarts
+      fetchFresh(false).then(() => {
+        renderVinWise();
+      }).finally(() => { _vwFetching = false; });
     }
   }, 1000);
 }
@@ -1369,13 +1377,20 @@ function switchTab(tab) {
     if (dash && dash.dataset.wasVisible === '1') dash.style.display = 'block';
     if (uf && uf.dataset.wasVisible === '1') uf.style.display = 'block';
     clearInterval(_vwTimer);
+    _vwFetching = false;
   } else {
     if (dash) { dash.dataset.wasVisible = dash.style.display !== 'none' ? '1' : '0'; dash.style.display = 'none'; }
     if (uf)   { uf.dataset.wasVisible   = uf.style.display   !== 'none' ? '1' : '0'; uf.style.display   = 'none'; }
     if (load) load.style.display = 'none';
     if (vw) vw.style.display = 'block';
-    renderVinWise();
-    startVwTimer();
+    // Always fetch fresh data when switching to VIN wise
+    _vwFetching = true;
+    fetchFresh(false).then(() => {
+      renderVinWise();
+    }).finally(() => {
+      _vwFetching = false;
+      startVwTimer();
+    });
   }
 }
 
@@ -1383,9 +1398,18 @@ function openVinWise() { switchTab('vinwise'); }
 function closeVinWise() { switchTab('pendency'); }
 
 function refreshVinWise() {
+  if (_vwFetching) return;
   clearInterval(_vwTimer);
-  _vwStart = Date.now();
-  fetchFresh(false).then(() => { renderVinWise(); startVwTimer(); });
+  _vwFetching = true;
+  const btn = document.querySelector('#vw-refresh-group .refresh-btn');
+  if (btn) btn.style.opacity = '0.5';
+  fetchFresh(false).then(() => {
+    renderVinWise();
+  }).finally(() => {
+    _vwFetching = false;
+    if (btn) btn.style.opacity = '';
+    startVwTimer();
+  });
 }
 
 loadData();
