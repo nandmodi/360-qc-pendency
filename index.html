@@ -191,7 +191,31 @@ td:last-child{padding-right:16px;text-align:right}
 .itype-video{background:rgba(180,143,255,.15);border:1px solid rgba(180,143,255,.4);color:var(--purple)}
 .itype-image{background:rgba(45,212,207,.15);border:1px solid rgba(45,212,207,.4);color:var(--teal)}
 @media(max-width:900px){.chart-pair{grid-template-columns:1fr}.hour-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:600px){.page{padding:0 12px 80px}.hdr{grid-template-columns:1fr auto}.hdr-center{display:none}.metric-strip{grid-template-columns:repeat(2,1fr)}.filter-row{grid-template-columns:repeat(2,1fr)}.hcard-n{font-size:28px}}
+@media(max-width:600px){
+  .page{padding:0 10px 80px}
+  .hdr{grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;gap:8px;padding:8px 12px}
+  .hdr-brand img{height:28px!important}
+  .hdr-brand>div div:first-child{font-size:13px}
+  .hdr-brand>div div:last-child{display:none}
+  .hdr-center{grid-column:1/-1;display:flex;justify-content:center;padding-bottom:6px}
+  .hdr-center>div{gap:4px}
+  .hdr-center>div>div:first-child button{padding:5px 12px;font-size:11px}
+  .hdr-center>div .live-badge{font-size:9px;padding:2px 8px}
+  .hdr-actions{gap:4px}
+  .sync-time{display:none}
+  .metric-strip{grid-template-columns:repeat(2,1fr);gap:8px}
+  .metric{padding:14px 14px}
+  .metric-val{font-size:26px}
+  .hour-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .hcard-n{font-size:28px}
+  .hcard{padding:14px 12px}
+  .filter-row{grid-template-columns:repeat(2,1fr)}
+  .chart-pair{grid-template-columns:1fr}
+  .drw{width:100vw}
+  .drw-stats{grid-template-columns:repeat(2,1fr)}
+  .vw-cols{grid-template-columns:1fr!important}
+  .tbl-scroll{max-height:300px}
+}
 </style>
 </head>
 <body>
@@ -376,6 +400,102 @@ td:last-child{padding-right:16px;text-align:right}
     </table></div></div>
   </div>
 </div>
+
+<!-- VIN Wise Tab Screen -->
+<div id="vw-screen" style="display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="tag tag-teal" id="vw-tag">LOADING</span>
+      <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px">BELOW 6H · WITHIN SLA</div>
+        <div style="font-size:22px;font-weight:800;color:var(--green);letter-spacing:-1px;line-height:1.2" id="vw-below-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--green);opacity:.7">VINs on track</div>
+    </div>
+    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px">ABOVE 6H · SLA BREACHED</div>
+        <div style="font-size:22px;font-weight:800;color:var(--red);letter-spacing:-1px;line-height:1.2" id="vw-above-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--red);opacity:.7">VINs breached</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="vw-cols">
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
+          Below 6h
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
+        </div>
+        <button onclick="dlVwData('below','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,200,150,.3);background:rgba(0,200,150,.06);color:var(--green);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(0,200,150,.15)'" onmouseout="this.style.background='rgba(0,200,150,.06)'">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
+      </div>
+      <div class="tbl-shell"><div class="tbl-scroll">
+        <table>
+          <thead><tr>
+            <th style="min-width:110px">SKU ID</th>
+            <th>VIN</th>
+            <th>Enterprise</th>
+            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none" id="vw-below-age-th">AGE <span id="vw-below-sort-icon">↓</span></th>
+            <th>SLA</th>
+          </tr></thead>
+          <tbody id="vw-below-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+          Above 6h — SLA breached
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
+        </div>
+        <button onclick="dlVwData('above','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(240,81,110,.3);background:rgba(240,81,110,.06);color:var(--red);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(240,81,110,.15)'" onmouseout="this.style.background='rgba(240,81,110,.06)'">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV
+        </button>
+      </div>
+      <div class="tbl-shell" style="border-color:rgba(240,81,110,.3)"><div class="tbl-scroll">
+        <table>
+          <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(240,81,110,.3)">
+            <th style="min-width:110px;color:var(--red)">SKU ID</th>
+            <th style="color:var(--red)">VIN</th>
+            <th style="color:var(--red)">Enterprise</th>
+            <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)" id="vw-above-age-th">AGE <span id="vw-above-sort-icon">↓</span></th>
+            <th style="color:var(--red)">Breached by</th>
+          </tr></thead>
+          <tbody id="vw-above-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
+  </div>
+  <div style="margin-top:20px">
+    <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      VIN Status
+      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">qc_unassigned · by user &amp; enterprise</span>
+    </div>
+    <div class="tbl-shell"><div class="tbl-scroll" style="max-height:280px">
+      <table>
+        <thead><tr>
+          <th style="min-width:130px">QC User</th>
+          <th style="min-width:150px">Enterprise</th>
+          <th style="text-align:center;color:var(--green)">Below 6h</th>
+          <th style="text-align:center;color:var(--red)">Above 6h</th>
+        </tr></thead>
+        <tbody id="vw-user-tbody"></tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+
 </div>
 
 <!-- Drawer -->
@@ -1470,100 +1590,5 @@ function refreshVinWise() {
 loadData();
 </script>
 
-<!-- VIN Wise Tab Screen -->
-<div id="vw-screen" style="display:none">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span class="tag tag-teal" id="vw-tag">LOADING</span>
-      <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
-      <div>
-        <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px">BELOW 6H · WITHIN SLA</div>
-        <div style="font-size:22px;font-weight:800;color:var(--green);letter-spacing:-1px;line-height:1.2" id="vw-below-count">0</div>
-      </div>
-      <div style="font-size:11px;color:var(--green);opacity:.7">VINs on track</div>
-    </div>
-    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
-      <div>
-        <div style="font-size:9px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px">ABOVE 6H · SLA BREACHED</div>
-        <div style="font-size:22px;font-weight:800;color:var(--red);letter-spacing:-1px;line-height:1.2" id="vw-above-count">0</div>
-      </div>
-      <div style="font-size:11px;color:var(--red);opacity:.7">VINs breached</div>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-        <div style="font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
-          Below 6h
-          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
-        </div>
-        <button onclick="dlVwData('below','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,200,150,.3);background:rgba(0,200,150,.06);color:var(--green);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(0,200,150,.15)'" onmouseout="this.style.background='rgba(0,200,150,.06)'">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            CSV
-          </button>
-      </div>
-      <div class="tbl-shell"><div class="tbl-scroll">
-        <table>
-          <thead><tr>
-            <th style="min-width:110px">SKU ID</th>
-            <th>VIN</th>
-            <th>Enterprise</th>
-            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none" id="vw-below-age-th">AGE <span id="vw-below-sort-icon">↓</span></th>
-            <th>SLA</th>
-          </tr></thead>
-          <tbody id="vw-below-tbody"></tbody>
-        </table>
-      </div></div>
-    </div>
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-        <div style="font-size:13px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
-          Above 6h — SLA breached
-          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
-        </div>
-        <button onclick="dlVwData('above','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(240,81,110,.3);background:rgba(240,81,110,.06);color:var(--red);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(240,81,110,.15)'" onmouseout="this.style.background='rgba(240,81,110,.06)'">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            CSV
-          </button>
-      </div>
-      <div class="tbl-shell" style="border-color:rgba(240,81,110,.3)"><div class="tbl-scroll">
-        <table>
-          <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(240,81,110,.3)">
-            <th style="min-width:110px;color:var(--red)">SKU ID</th>
-            <th style="color:var(--red)">VIN</th>
-            <th style="color:var(--red)">Enterprise</th>
-            <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)" id="vw-above-age-th">AGE <span id="vw-above-sort-icon">↓</span></th>
-            <th style="color:var(--red)">Breached by</th>
-          </tr></thead>
-          <tbody id="vw-above-tbody"></tbody>
-        </table>
-      </div></div>
-    </div>
-  </div>
-  <div style="margin-top:20px">
-    <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      VIN Status
-      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">qc_unassigned · by user & enterprise</span>
-    </div>
-    <div class="tbl-shell"><div class="tbl-scroll" style="max-height:280px">
-      <table>
-        <thead><tr>
-          <th style="min-width:130px">QC User</th>
-          <th style="min-width:150px">Enterprise</th>
-          <th style="text-align:center;color:var(--green)">Below 6h</th>
-          <th style="text-align:center;color:var(--red)">Above 6h</th>
-        </tr></thead>
-        <tbody id="vw-user-tbody"></tbody>
-      </table>
-    </div></div>
-  </div>
-</div>
+</body>
 </html>
