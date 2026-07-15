@@ -191,7 +191,8 @@ td:last-child{padding-right:16px;text-align:right}
 .itype-video{background:rgba(180,143,255,.15);border:1px solid rgba(180,143,255,.4);color:var(--purple)}
 .itype-image{background:rgba(45,212,207,.15);border:1px solid rgba(45,212,207,.4);color:var(--teal)}
 .vw-cols table th{padding:6px 6px;font-size:8px;letter-spacing:.4px}
-.vw-cols table td{padding:5px 6px;font-size:10px}
+.vw-cols table td{padding:5px 6px;font-size:9px}
+.vw-cols table{table-layout:fixed;width:100%}
 .vw-cols>div{min-width:0}
 .vw-cols .tbl-shell{overflow:hidden}
 @media(max-width:900px){.chart-pair{grid-template-columns:1fr}.hour-grid{grid-template-columns:repeat(3,1fr)}}
@@ -476,9 +477,9 @@ td:last-child{padding-right:16px;text-align:right}
       <div class="tbl-shell"><div class="tbl-scroll">
         <table>
           <thead><tr>
-            <th>SKU ID</th><th>VIN</th><th>Ent ID</th><th>Enterprise</th>
-            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none">AGE <span id="vw-below-sort-icon">↓</span></th>
-            <th>SLA</th>
+            <th style="width:12%">SKU ID</th><th style="width:18%">VIN</th><th style="width:12%">Ent ID</th><th style="width:22%">Enterprise</th>
+            <th style="width:10%" onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none">AGE <span id="vw-below-sort-icon">↓</span></th>
+            <th style="width:10%">SLA</th>
           </tr></thead>
           <tbody id="vw-below-tbody"></tbody>
         </table>
@@ -1516,9 +1517,9 @@ function renderVinWise() {
     const bg = i%2===0 ? '' : 'background:var(--card2)';
     return `<tr style="border-top:1px solid var(--rim);${bg}">
       <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.sku||'').substring(0,10)}…</td>
-      <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:5px 6px;color:var(--t1);font-weight:500;cursor:copy;font-size:11px">${r.vin||'—'}</td>
+      <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t1);font-weight:500;cursor:copy;white-space:nowrap">${r.vin||'—'}</td>
       <td data-copy="${r.eid||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise ID" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.eid||'—').substring(0,8)}…</td>
-      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:5px 6px;font-size:10px;color:var(--t2);cursor:copy;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
       ${extraCols(r, h)}
     </tr>`;
   };
