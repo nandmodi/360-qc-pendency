@@ -17,7 +17,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
 button{font-family:'Inter',sans-serif;cursor:pointer;border:none;background:none}
 .mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;}
 a{color:inherit;text-decoration:none}
-.page{max-width:1540px;margin:0 auto;padding:0 28px 5px;position:relative;z-index:1}
+.page{max-width:100%;margin:0 auto;padding:0 28px 100px;position:relative;z-index:1}
 .hdr-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--rim);box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:8px}
 .hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;padding:10px 28px;max-width:1540px;margin:0 auto;}
 .hdr-brand{display:flex;align-items:center;gap:12px}
@@ -409,7 +409,8 @@ td:last-child{padding-right:16px;text-align:right}
       <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+  <!-- Summary cards — 3 columns -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
     <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
       <div>
         <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px">BELOW 6H · WITHIN SLA</div>
@@ -424,63 +425,93 @@ td:last-child{padding-right:16px;text-align:right}
       </div>
       <div style="font-size:11px;color:var(--red);opacity:.7">VINs breached</div>
     </div>
+    <div style="background:rgba(180,143,255,.08);border:1px solid rgba(180,143,255,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--purple);letter-spacing:.8px">REPEAT VINs</div>
+        <div style="font-size:22px;font-weight:800;color:var(--purple);letter-spacing:-1px;line-height:1.2" id="vw-repeat-count">0</div>
+      </div>
+      <div style="font-size:11px;color:var(--purple);opacity:.7">first_qc_done set</div>
+    </div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="vw-cols">
+  <!-- 3-column tables — full width -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+    <!-- Below 6h -->
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-        <div style="font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <div style="font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>
           Below 6h
-          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first · amber = ≤30 min to breach</span>
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
         </div>
-        <button onclick="dlVwData('below','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,200,150,.3);background:rgba(0,200,150,.06);color:var(--green);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(0,200,150,.15)'" onmouseout="this.style.background='rgba(0,200,150,.06)'">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          CSV
+        <button onclick="dlVwData('below','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,200,150,.3);background:rgba(0,200,150,.06);color:var(--green);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer" onmouseover="this.style.background='rgba(0,200,150,.15)'" onmouseout="this.style.background='rgba(0,200,150,.06)'">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
         </button>
       </div>
       <div class="tbl-shell"><div class="tbl-scroll">
         <table>
           <thead><tr>
-            <th style="min-width:110px">SKU ID</th>
-            <th>VIN</th>
-            <th>Enterprise</th>
-            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none" id="vw-below-age-th">AGE <span id="vw-below-sort-icon">↓</span></th>
+            <th>SKU ID</th><th>VIN</th><th>Enterprise ID</th><th>Enterprise</th>
+            <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none">AGE <span id="vw-below-sort-icon">↓</span></th>
             <th>SLA</th>
           </tr></thead>
           <tbody id="vw-below-tbody"></tbody>
         </table>
       </div></div>
     </div>
+    <!-- Above 6h -->
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-        <div style="font-size:13px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <div style="font-size:13px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
           Above 6h — SLA breached
           <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">oldest first</span>
         </div>
-        <button onclick="dlVwData('above','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(240,81,110,.3);background:rgba(240,81,110,.06);color:var(--red);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(240,81,110,.15)'" onmouseout="this.style.background='rgba(240,81,110,.06)'">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          CSV
+        <button onclick="dlVwData('above','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(240,81,110,.3);background:rgba(240,81,110,.06);color:var(--red);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer" onmouseover="this.style.background='rgba(240,81,110,.15)'" onmouseout="this.style.background='rgba(240,81,110,.06)'">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
         </button>
       </div>
       <div class="tbl-shell" style="border-color:rgba(240,81,110,.3)"><div class="tbl-scroll">
         <table>
           <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(240,81,110,.3)">
-            <th style="min-width:110px;color:var(--red)">SKU ID</th>
-            <th style="color:var(--red)">VIN</th>
-            <th style="color:var(--red)">Enterprise</th>
-            <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)" id="vw-above-age-th">AGE <span id="vw-above-sort-icon">↓</span></th>
+            <th style="color:var(--red)">SKU ID</th><th style="color:var(--red)">VIN</th>
+            <th style="color:var(--red)">Enterprise ID</th><th style="color:var(--red)">Enterprise</th>
+            <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)">AGE <span id="vw-above-sort-icon">↓</span></th>
             <th style="color:var(--red)">Breached by</th>
           </tr></thead>
           <tbody id="vw-above-tbody"></tbody>
         </table>
       </div></div>
     </div>
+    <!-- Repeat VIN -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;font-weight:700;color:var(--purple);display:flex;align-items:center;gap:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--purple);display:inline-block;flex-shrink:0"></span>
+          Repeat VIN
+          <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">first_qc_done set</span>
+        </div>
+        <button onclick="dlVwData('repeat','csv')" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid rgba(180,143,255,.3);background:rgba(180,143,255,.06);color:var(--purple);font-size:10px;font-family:var(--f-mono);font-weight:600;cursor:pointer" onmouseover="this.style.background='rgba(180,143,255,.15)'" onmouseout="this.style.background='rgba(180,143,255,.06)'">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
+        </button>
+      </div>
+      <div class="tbl-shell" style="border-color:rgba(180,143,255,.3)"><div class="tbl-scroll">
+        <table>
+          <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(180,143,255,.3)">
+            <th style="color:var(--purple)">SKU ID</th><th style="color:var(--purple)">VIN</th>
+            <th style="color:var(--purple)">Enterprise ID</th><th style="color:var(--purple)">Enterprise</th>
+            <th style="color:var(--purple)">Age</th>
+            <th style="color:var(--purple)">First QC Done</th>
+          </tr></thead>
+          <tbody id="vw-repeat-tbody"></tbody>
+        </table>
+      </div></div>
+    </div>
   </div>
+  <!-- VIN Status — assigned users -->
   <div style="margin-top:20px">
     <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:8px">
       VIN Status
-      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">qc_unassigned · by user &amp; enterprise</span>
+      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">assigned users · by user &amp; enterprise</span>
     </div>
     <div class="tbl-shell"><div class="tbl-scroll" style="max-height:175px">
       <table>
@@ -1261,6 +1292,7 @@ function normaliseRows(rawRows) {
     overallScore:r.overallScore||'',
     vinScore:r.vinScore||'',
     createdAt:r.createdAt||'',
+    firstQcDone:r.firstQcDone||'',
   }));
 }
 let _lastSynced = null;
@@ -1353,10 +1385,17 @@ function dlVwData(section, fmt) {
     const d = new Date(r.createdAt); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
-  const rows = [..._rows].filter(r => {
-    const h = getAge(r);
-    return section === 'below' ? (h != null && h < 6) : (h != null && h >= 6);
-  }).sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+  const base = [..._rows].filter(r => r.crmStatus === 'qc_unassigned');
+  let rows;
+  if (section === 'repeat') {
+    rows = base.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
+  } else {
+    const nonRepeat = base.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
+    rows = nonRepeat.filter(r => {
+      const h = getAge(r);
+      return section === 'below' ? (h != null && h < 6) : (h != null && h >= 6);
+    }).sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+  }
 
   // Add Age and Breach columns
   const extraKeys   = section === 'below' ? ['age','sla']       : ['age','breachedBy'];
@@ -1410,63 +1449,78 @@ function renderVinWise() {
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
 
-  const rows = [..._rows].filter(r => !r.crmStatus || r.crmStatus === 'qc_unassigned');
-  const below = rows.filter(r => { const h = getAge(r); return h != null && h < 6; })
-                    .sort((a,b) => _vwBelowSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
-  const above = rows.filter(r => { const h = getAge(r); return h != null && h >= 6; })
-                    .sort((a,b) => _vwAboveSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
+  const rows = [..._rows].filter(r => r.crmStatus === 'qc_unassigned');
+
+  // Split: repeat = firstQcDone set; non-repeat = firstQcDone empty
+  const repeat  = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
+  const nonRepeat = rows.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
+
+  const below = nonRepeat.filter(r => { const h = getAge(r); return h != null && h < 6; })
+                         .sort((a,b) => _vwBelowSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
+  const above = nonRepeat.filter(r => { const h = getAge(r); return h != null && h >= 6; })
+                         .sort((a,b) => _vwAboveSort === 'desc' ? (getAge(b)||0) - (getAge(a)||0) : (getAge(a)||0) - (getAge(b)||0));
 
   document.getElementById('vw-below-count').textContent = below.length.toLocaleString();
   document.getElementById('vw-above-count').textContent = above.length.toLocaleString();
+  document.getElementById('vw-repeat-count').textContent = repeat.length.toLocaleString();
   document.getElementById('vw-tag').textContent = `VIN WISE · ${rows.length.toLocaleString()} VINs`;
   document.getElementById('vw-sync').textContent = _lastSynced ? 'Synced ' + new Date(_lastSynced).toLocaleTimeString() : 'Updated ' + new Date().toLocaleTimeString();
 
-  // Update sort icons
   const bi = document.getElementById('vw-below-sort-icon');
   const ai = document.getElementById('vw-above-sort-icon');
   if (bi) bi.textContent = _vwBelowSort === 'desc' ? '↓' : '↑';
   if (ai) ai.textContent = _vwAboveSort === 'desc' ? '↓' : '↑';
 
-  // Below 6h table
-  const bTbody = document.getElementById('vw-below-tbody');
-  if (!below.length) {
-    bTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No VINs below 6h</td></tr>';
-  } else {
-    bTbody.innerHTML = below.map((r,i) => {
-      const h = getAge(r);
-      const remaining = 6 - h;
-      const isWarning = remaining <= 0.5; // within 30 min
-      const bg = isWarning ? 'background:rgba(245,166,35,.08)' : (i%2===0?'':'background:var(--card2)');
-      const slaEl = isWarning
-        ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 7px;border-radius:4px;white-space:nowrap;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m left</span>`
-        : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 7px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
-      return `<tr style="border-top:1px solid var(--rim);${bg}">
-        <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2);cursor:copy">${(r.sku||'').substring(0,12)}…</td>
-        <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:7px 10px;color:var(--t1);font-weight:500;cursor:copy">${r.vin||'—'}</td>
-        <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy enterprise" style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:copy">${r.entName||'—'}</td>
-        <td style="padding:7px 10px;color:${isWarning?'var(--amber)':'var(--t2)'};font-weight:${isWarning?'600':'400'};font-family:var(--f-mono)">${fmtAge(h)}</td>
-        <td style="padding:7px 10px">${slaEl}</td>
-      </tr>`;
-    }).join('');
-  }
+  // Row builder helper
+  const mkRow = (r, i, color, extraCols) => {
+    const h = getAge(r);
+    const bg = i%2===0 ? '' : 'background:var(--card2)';
+    return `<tr style="border-top:1px solid var(--rim);${bg}">
+      <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:6px 8px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.sku||'').substring(0,12)}…</td>
+      <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:6px 8px;color:var(--t1);font-weight:500;cursor:copy;font-size:11px">${r.vin||'—'}</td>
+      <td data-copy="${r.eid||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise ID" style="padding:6px 8px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.eid||'—').substring(0,10)}…</td>
+      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:6px 8px;font-size:10px;color:var(--t2);cursor:copy;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+      ${extraCols(r, h)}
+    </tr>`;
+  };
 
-  // Above 6h table
+  // Below 6h
+  const bTbody = document.getElementById('vw-below-tbody');
+  bTbody.innerHTML = !below.length
+    ? '<tr><td colspan="6" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No VINs below 6h</td></tr>'
+    : below.map((r,i) => {
+        const h = getAge(r);
+        const remaining = 6 - h;
+        const isWarning = remaining <= 0.5;
+        const slaEl = isWarning
+          ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 6px;border-radius:4px;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m</span>`
+          : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 6px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
+        return mkRow(r, i, 'green', (r,h) => `
+          <td style="padding:6px 8px;color:${isWarning?'var(--amber)':'var(--t2)'};font-weight:${isWarning?'600':'400'};font-family:var(--f-mono);font-size:11px">${fmtAge(h)}</td>
+          <td style="padding:6px 8px">${slaEl}</td>`);
+      }).join('');
+
+  // Above 6h
   const aTbody = document.getElementById('vw-above-tbody');
-  if (!above.length) {
-    aTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No SLA breaches 🎉</td></tr>';
-  } else {
-    aTbody.innerHTML = above.map((r,i) => {
-      const h = getAge(r);
-      const breach = h - 6;
-      return `<tr style="border-top:1px solid rgba(240,81,110,.15);${i%2===0?'':'background:rgba(240,81,110,.04)'}">
-        <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:7px 10px;font-family:var(--f-mono);font-size:10px;color:var(--t2);cursor:copy">${(r.sku||'').substring(0,12)}…</td>
-        <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:7px 10px;color:var(--t1);font-weight:500;cursor:copy">${r.vin||'—'}</td>
-        <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy enterprise" style="padding:7px 10px;color:var(--t2);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:copy">${r.entName||'—'}</td>
-        <td style="padding:7px 10px;color:var(--red);font-weight:600;font-family:var(--f-mono)">${fmtAge(h)}</td>
-        <td style="padding:7px 10px;color:var(--red);font-family:var(--f-mono);font-weight:600">+${fmtAge(breach)}</td>
-      </tr>`;
-    }).join('');
-  }
+  aTbody.innerHTML = !above.length
+    ? '<tr><td colspan="6" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No SLA breaches 🎉</td></tr>'
+    : above.map((r,i) => {
+        const h = getAge(r);
+        return mkRow(r, i, 'red', (r,h) => `
+          <td style="padding:6px 8px;color:var(--red);font-weight:600;font-family:var(--f-mono);font-size:11px">${fmtAge(h)}</td>
+          <td style="padding:6px 8px;color:var(--red);font-family:var(--f-mono);font-weight:600;font-size:11px">+${fmtAge(h-6)}</td>`);
+      }).join('');
+
+  // Repeat VIN
+  const rTbody = document.getElementById('vw-repeat-tbody');
+  rTbody.innerHTML = !repeat.length
+    ? '<tr><td colspan="6" style="text-align:center;padding:20px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No repeat VINs</td></tr>'
+    : repeat.map((r,i) => {
+        const h = getAge(r);
+        return mkRow(r, i, 'purple', (r,h) => `
+          <td style="padding:6px 8px;color:var(--purple);font-family:var(--f-mono);font-size:11px">${fmtAge(h)}</td>
+          <td style="padding:6px 8px;font-size:9px;color:var(--t2);font-family:var(--f-mono)">${r.firstQcDone||'—'}</td>`);
+      }).join('');
   // VIN Status table — assigned users only (exclude qc_unassigned & qc_onhold)
   const uMap2 = {};
   [..._rows].filter(r => r.crmStatus !== 'qc_unassigned' && r.crmStatus !== 'qc_onhold').forEach(r => {
