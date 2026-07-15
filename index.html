@@ -424,6 +424,16 @@ td:last-child{padding-right:16px;text-align:right}
       <span class="tag tag-teal" id="vw-tag">LOADING</span>
       <span style="font-size:11px;font-family:var(--f-mono);color:var(--t3)" id="vw-sync"></span>
     </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3)">Category:</span>
+      <div class="dl-dropdown" id="vw-cat-dd">
+        <button class="dl-trigger" onclick="toggleDl('vw-cat-dd')" id="vw-cat-btn" style="font-size:10px;padding:4px 10px;min-width:80px">
+          All
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dl-menu" id="vw-cat-menu" style="min-width:120px"></div>
+      </div>
+    </div>
   </div>
   <!-- Summary cards — 3 columns -->
   <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px">
@@ -1455,7 +1465,7 @@ function fmtAge(h) {
   return hrs + 'h ' + String(mins).padStart(2,'0') + 'm';
 }
 
-let _vwBelowSort = 'desc', _vwAboveSort = 'desc';
+let _vwBelowSort = 'desc', _vwAboveSort = 'desc', _vwCategory = null;
 
 function renderVinWise() {
   const now = Date.now();
@@ -1465,7 +1475,20 @@ function renderVinWise() {
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
 
-  const rows = [..._rows].filter(r => r.crmStatus === 'qc_unassigned');
+  let rows = [..._rows].filter(r => r.crmStatus === 'qc_unassigned');
+
+  // Build category dropdown options (all unique segments)
+  const cats = [...new Set(rows.map(r => r.customerSegment).filter(Boolean))].sort();
+  const menu = document.getElementById('vw-cat-menu');
+  const btn  = document.getElementById('vw-cat-btn');
+  if (menu) {
+    menu.innerHTML = `<button class="dl-item" onclick="_vwCategory=null;closeDl('vw-cat-dd');renderVinWise()" style="${!_vwCategory?'color:var(--teal)':''}">All</button>`
+      + cats.map(c => `<button class="dl-item" onclick="_vwCategory='${c.replace(/'/g,"\\'")}';closeDl('vw-cat-dd');renderVinWise()" style="${_vwCategory===c?'color:var(--teal)':''}">${c}</button>`).join('');
+  }
+  if (btn) btn.firstChild.textContent = _vwCategory || 'All ';
+
+  // Apply category filter
+  if (_vwCategory) rows = rows.filter(r => r.customerSegment === _vwCategory);
 
   // Split: repeat = firstQcDone set; non-repeat = firstQcDone empty
   const repeat  = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
@@ -1622,6 +1645,7 @@ function switchTab(tab) {
     if (uf && uf.dataset.wasVisible === '1') uf.style.display = 'block';
     clearInterval(_vwTimer);
     _vwFetching = false;
+    _vwCategory = null;
   } else {
     if (dash) { dash.dataset.wasVisible = dash.style.display !== 'none' ? '1' : '0'; dash.style.display = 'none'; }
     if (uf)   { uf.dataset.wasVisible   = uf.style.display   !== 'none' ? '1' : '0'; uf.style.display   = 'none'; }
