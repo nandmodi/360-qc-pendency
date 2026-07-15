@@ -1529,7 +1529,7 @@ function renderVinWise() {
     : below.map((r,i) => {
         const h = getAge(r);
         const remaining = 6 - h;
-        const isWarning = remaining <= 0.5;
+        const isWarning = remaining <= 1;
         const slaEl = isWarning
           ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 6px;border-radius:4px;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m</span>`
           : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 6px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
