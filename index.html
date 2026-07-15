@@ -798,9 +798,13 @@ function renderCharts(rows){
     const ent  = r.entName || '—';
     const key  = user + '||' + ent;
     if (!uMap[key]) uMap[key] = { user, ent, below: 0, above: 0, repeat: 0 };
-    const h = getA(r);
-    if (h != null) { if (h < 6) uMap[key].below++; else uMap[key].above++; }
-    if (r.firstQcDone && r.firstQcDone.trim() !== '') uMap[key].repeat++;
+    const isRepeat = r.firstQcDone && r.firstQcDone.trim() !== '';
+    if (isRepeat) {
+      uMap[key].repeat++;
+    } else {
+      const h = getA(r);
+      if (h != null) { if (h < 6) uMap[key].below++; else uMap[key].above++; }
+    }
   });
   const uRows = Object.values(uMap).filter(r => r.user !== '—').sort((a,b) => (b.below+b.above) - (a.below+a.above));
   const tbody = document.getElementById('ch-crm');
@@ -1575,9 +1579,13 @@ function renderVinWise() {
     const ent  = r.entName || '—';
     const key  = user + '||' + ent;
     if (!uMap2[key]) uMap2[key] = { user, ent, below: 0, above: 0, repeat: 0 };
-    const h = getAge(r);
-    if (h != null) { if (h < 6) uMap2[key].below++; else uMap2[key].above++; }
-    if (r.firstQcDone && r.firstQcDone.trim() !== '') uMap2[key].repeat++;
+    const isRepeat = r.firstQcDone && r.firstQcDone.trim() !== '';
+    if (isRepeat) {
+      uMap2[key].repeat++;
+    } else {
+      const h = getAge(r);
+      if (h != null) { if (h < 6) uMap2[key].below++; else uMap2[key].above++; }
+    }
   });
   const uRows2 = Object.values(uMap2).filter(r => r.user !== '—').sort((a,b) => (b.below+b.above) - (a.below+a.above));
   const uTbody = document.getElementById('vw-user-tbody');
