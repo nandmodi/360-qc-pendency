@@ -476,7 +476,7 @@ td:last-child{padding-right:16px;text-align:right}
       <div class="tbl-shell"><div class="tbl-scroll">
         <table>
           <thead><tr>
-            <th>SKU ID</th><th>VIN</th><th>Enterprise</th>
+            <th>SKU ID</th><th>VIN</th><th>Ent ID</th><th>Enterprise</th>
             <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none">AGE <span id="vw-below-sort-icon">↓</span></th>
             <th>SLA</th>
           </tr></thead>
@@ -500,7 +500,7 @@ td:last-child{padding-right:16px;text-align:right}
         <table>
           <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(240,81,110,.3)">
             <th style="color:var(--red)">SKU ID</th><th style="color:var(--red)">VIN</th>
-            <th style="color:var(--red)">Enterprise</th>
+            <th style="color:var(--red)">Ent ID</th><th style="color:var(--red)">Enterprise</th>
             <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)">AGE <span id="vw-above-sort-icon">↓</span></th>
             <th style="color:var(--red)">Breached by</th>
           </tr></thead>
@@ -524,7 +524,7 @@ td:last-child{padding-right:16px;text-align:right}
         <table>
           <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(180,143,255,.3)">
             <th style="color:var(--purple)">SKU ID</th><th style="color:var(--purple)">VIN</th>
-            <th style="color:var(--purple)">Enterprise</th>
+            <th style="color:var(--purple)">Ent ID</th><th style="color:var(--purple)">Enterprise</th>
             <th style="color:var(--purple)">Age</th>
             <th style="color:var(--purple)">First QC Done</th>
           </tr></thead>
@@ -1515,9 +1515,10 @@ function renderVinWise() {
     const h = getAge(r);
     const bg = i%2===0 ? '' : 'background:var(--card2)';
     return `<tr style="border-top:1px solid var(--rim);${bg}">
-      <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.sku||'').substring(0,10)}…</td>
+      <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.sku||'').substring(0,10)}…</td>
       <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:5px 6px;color:var(--t1);font-weight:500;cursor:copy;font-size:11px">${r.vin||'—'}</td>
-      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:5px 6px;font-size:10px;color:var(--t2);cursor:copy;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+      <td data-copy="${r.eid||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise ID" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.eid||'—').substring(0,8)}…</td>
+      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:5px 6px;font-size:10px;color:var(--t2);cursor:copy;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
       ${extraCols(r, h)}
     </tr>`;
   };
@@ -1529,7 +1530,7 @@ function renderVinWise() {
     : below.map((r,i) => {
         const h = getAge(r);
         const remaining = 6 - h;
-        const isWarning = remaining <= 1;
+        const isWarning = remaining <= 0.5;
         const slaEl = isWarning
           ? `<span style="font-size:9px;background:rgba(245,166,35,.15);color:var(--amber);border:1px solid rgba(245,166,35,.3);padding:2px 6px;border-radius:4px;font-family:var(--f-mono)">⚠ ${Math.round(remaining*60)}m</span>`
           : `<span style="font-size:9px;background:rgba(0,200,150,.1);color:var(--green);border:1px solid rgba(0,200,150,.2);padding:2px 6px;border-radius:4px;font-family:var(--f-mono)">✓ OK</span>`;
