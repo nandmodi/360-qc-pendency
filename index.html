@@ -192,31 +192,45 @@ td:last-child{padding-right:16px;text-align:right}
 .itype-image{background:rgba(45,212,207,.15);border:1px solid rgba(45,212,207,.4);color:var(--teal)}
 .vw-cols table th{padding:6px 6px;font-size:8px;letter-spacing:.4px}
 .vw-cols table td{padding:5px 6px;font-size:10px}
+.vw-cols>div{min-width:0}
+.vw-cols .tbl-shell{overflow:hidden}
 @media(max-width:900px){.chart-pair{grid-template-columns:1fr}.hour-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){
-  .page{padding:0 10px 80px}
-  .hdr{grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;gap:8px;padding:8px 12px}
-  .hdr-brand img{height:28px!important}
-  .hdr-brand>div div:first-child{font-size:13px}
+  .page{padding:0 8px 80px}
+  .hdr{grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:6px;padding:8px 10px}
+  .hdr-brand{grid-column:1;display:flex;align-items:center;gap:8px}
+  .hdr-brand img{height:24px!important}
+  .hdr-brand>div div:first-child{font-size:12px}
   .hdr-brand>div div:last-child{display:none}
-  .hdr-center{grid-column:1/-1;display:flex;justify-content:center;padding-bottom:6px}
-  .hdr-center>div{gap:4px}
-  .hdr-center>div>div:first-child button{padding:5px 12px;font-size:11px}
+  .hdr-actions{grid-column:2;grid-row:1;display:flex;align-items:center;gap:3px}
+  .hdr-actions .sync-time{display:none}
+  .hdr-actions .icon-btn{width:28px;height:28px;font-size:12px}
+  .hdr-actions .refresh-ring{width:28px;height:28px}
+  .hdr-actions .refresh-btn{padding:5px 10px;font-size:11px}
+  .hdr-center{grid-column:1/-1;display:flex;justify-content:center;padding-bottom:4px}
+  .hdr-center>div{gap:3px}
+  .hdr-center>div>div:first-child button{padding:4px 10px;font-size:10px}
   .hdr-center>div .live-badge{font-size:9px;padding:2px 8px}
-  .hdr-actions{gap:4px}
-  .sync-time{display:none}
   .metric-strip{grid-template-columns:repeat(2,1fr);gap:8px}
-  .metric{padding:14px 14px}
-  .metric-val{font-size:26px}
+  .metric{padding:12px 12px}
+  .metric-val{font-size:24px}
   .hour-grid{grid-template-columns:repeat(2,1fr);gap:8px}
-  .hcard-n{font-size:28px}
-  .hcard{padding:14px 12px}
+  .hcard-n{font-size:24px}
+  .hcard{padding:12px 10px}
   .filter-row{grid-template-columns:repeat(2,1fr)}
   .chart-pair{grid-template-columns:1fr}
   .drw{width:100vw}
   .drw-stats{grid-template-columns:repeat(2,1fr)}
-  .vw-cols{grid-template-columns:1fr!important}
-  .tbl-scroll{max-height:300px}
+  /* VIN wise — stack 3 cols vertically on mobile */
+  .vw-cols{grid-template-columns:1fr!important;gap:20px}
+  /* VIN wise summary cards — 1 col on mobile */
+  #vw-screen>div:nth-child(2){grid-template-columns:1fr!important}
+  .tbl-scroll{max-height:280px}
+}
+@media(min-width:601px) and (max-width:1024px){
+  /* Tablet — stack VIN wise to 1 col */
+  .vw-cols{grid-template-columns:1fr!important;gap:16px}
+  #vw-screen>div:nth-child(2){grid-template-columns:1fr 1fr!important}
 }
 </style>
 </head>
@@ -412,7 +426,7 @@ td:last-child{padding-right:16px;text-align:right}
     </div>
   </div>
   <!-- Summary cards — 3 columns -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px">
     <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:16px">
       <div>
         <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px">BELOW 6H · WITHIN SLA</div>
@@ -435,8 +449,8 @@ td:last-child{padding-right:16px;text-align:right}
       <div style="font-size:11px;color:var(--purple);opacity:.7">first_qc_done set</div>
     </div>
   </div>
-  <!-- 3-column tables — full width -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px" class="vw-cols">
+  <!-- 3-column tables — full width equally divided -->
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px" class="vw-cols">
     <!-- Below 6h -->
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
@@ -452,7 +466,7 @@ td:last-child{padding-right:16px;text-align:right}
       <div class="tbl-shell"><div class="tbl-scroll">
         <table>
           <thead><tr>
-            <th>SKU ID</th><th>VIN</th><th>Enterprise ID</th><th>Enterprise</th>
+            <th>SKU ID</th><th>VIN</th><th>Enterprise</th>
             <th onclick="_vwBelowSort=_vwBelowSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none">AGE <span id="vw-below-sort-icon">↓</span></th>
             <th>SLA</th>
           </tr></thead>
@@ -476,7 +490,7 @@ td:last-child{padding-right:16px;text-align:right}
         <table>
           <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(240,81,110,.3)">
             <th style="color:var(--red)">SKU ID</th><th style="color:var(--red)">VIN</th>
-            <th style="color:var(--red)">Enterprise ID</th><th style="color:var(--red)">Enterprise</th>
+            <th style="color:var(--red)">Enterprise</th>
             <th onclick="_vwAboveSort=_vwAboveSort==='desc'?'asc':'desc';renderVinWise()" style="cursor:pointer;user-select:none;color:var(--red)">AGE <span id="vw-above-sort-icon">↓</span></th>
             <th style="color:var(--red)">Breached by</th>
           </tr></thead>
@@ -500,7 +514,7 @@ td:last-child{padding-right:16px;text-align:right}
         <table>
           <thead style="background:var(--card2)"><tr style="background:var(--card2);border-bottom:1px solid rgba(180,143,255,.3)">
             <th style="color:var(--purple)">SKU ID</th><th style="color:var(--purple)">VIN</th>
-            <th style="color:var(--purple)">Enterprise ID</th><th style="color:var(--purple)">Enterprise</th>
+            <th style="color:var(--purple)">Enterprise</th>
             <th style="color:var(--purple)">Age</th>
             <th style="color:var(--purple)">First QC Done</th>
           </tr></thead>
@@ -1478,10 +1492,9 @@ function renderVinWise() {
     const h = getAge(r);
     const bg = i%2===0 ? '' : 'background:var(--card2)';
     return `<tr style="border-top:1px solid var(--rim);${bg}">
-      <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:6px 8px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.sku||'').substring(0,12)}…</td>
-      <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:6px 8px;color:var(--t1);font-weight:500;cursor:copy;font-size:11px">${r.vin||'—'}</td>
-      <td data-copy="${r.eid||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise ID" style="padding:6px 8px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.eid||'—').substring(0,10)}…</td>
-      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:6px 8px;font-size:10px;color:var(--t2);cursor:copy;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+      <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy SKU" style="padding:5px 6px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(r.sku||'').substring(0,10)}…</td>
+      <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy VIN" style="padding:5px 6px;color:var(--t1);font-weight:500;cursor:copy;font-size:11px">${r.vin||'—'}</td>
+      <td data-copy="${r.entName||''}" onclick="copyCell(this.dataset.copy,this)" title="Click to copy Enterprise" style="padding:5px 6px;font-size:10px;color:var(--t2);cursor:copy;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
       ${extraCols(r, h)}
     </tr>`;
   };
