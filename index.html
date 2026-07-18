@@ -806,13 +806,13 @@ function renderCharts(rows){
       if (h != null) { if (h < 6) uMap[key].below++; else uMap[key].above++; }
     }
   });
-  const uRows = Object.values(uMap).filter(r => r.user !== '—').sort((a,b) => (b.below+b.above) - (a.below+a.above));
+  const uRows = Object.values(uMap).sort((a,b) => (b.below+b.above+b.repeat) - (a.below+a.above+a.repeat));
   const tbody = document.getElementById('ch-crm');
   if (!uRows.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No assigned users</td></tr>';
   } else {
     tbody.innerHTML = uRows.map((r,i) => `<tr style="border-top:1px solid var(--rim);${i%2===0?'':'background:var(--card2)'}">
-      <td style="padding:7px 10px;font-size:11px;font-weight:500;color:var(--t1)">${r.user}</td>
+      <td style="padding:7px 10px;font-size:11px;font-weight:500;color:var(--t1)">${r.user === '—' ? '<span style="color:var(--t3);font-style:italic;font-size:10px">(blank)</span>' : r.user}</td>
       <td style="padding:7px 10px;font-size:10px;color:var(--t2);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.ent}">${r.ent}</td>
       <td style="padding:7px 10px;text-align:center;font-family:var(--f-mono);font-weight:600;color:var(--green)">${r.below}</td>
       <td style="padding:7px 10px;text-align:center;font-family:var(--f-mono);font-weight:600;color:${r.above>0?'var(--red)':'var(--t3)'}">${r.above}</td>
@@ -1587,14 +1587,14 @@ function renderVinWise() {
       if (h != null) { if (h < 6) uMap2[key].below++; else uMap2[key].above++; }
     }
   });
-  const uRows2 = Object.values(uMap2).filter(r => r.user !== '—').sort((a,b) => (b.below+b.above) - (a.below+a.above));
+  const uRows2 = Object.values(uMap2).sort((a,b) => (b.below+b.above+b.repeat) - (a.below+a.above+a.repeat));
   const uTbody = document.getElementById('vw-user-tbody');
   if (uTbody) {
     if (!uRows2.length) {
       uTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No assigned users</td></tr>';
     } else {
       uTbody.innerHTML = uRows2.map((r,i) => `<tr style="border-top:1px solid var(--rim);${i%2===0?'':'background:var(--card2)'}">
-        <td style="padding:7px 12px;font-size:11px;font-weight:500;color:var(--t1)">${r.user}</td>
+        <td style="padding:7px 12px;font-size:11px;font-weight:500;color:var(--t1)">${r.user === '—' ? '<span style="color:var(--t3);font-style:italic;font-size:10px">(blank)</span>' : r.user}</td>
         <td style="padding:7px 12px;font-size:10px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.ent}">${r.ent}</td>
         <td style="padding:7px 12px;text-align:center;font-family:var(--f-mono);font-weight:700;color:var(--green)">${r.below}</td>
         <td style="padding:7px 12px;text-align:center;font-family:var(--f-mono);font-weight:700;color:${r.above>0?'var(--red)':'var(--t3)'}">${r.above}</td>
