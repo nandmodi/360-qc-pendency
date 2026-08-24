@@ -1757,14 +1757,27 @@ function switchTab(tab) {
     if (uf)   { uf.dataset.wasVisible   = uf.style.display   !== 'none' ? '1' : '0'; uf.style.display   = 'none'; }
     if (load) load.style.display = 'none';
     if (vw) vw.style.display = 'block';
-    // Always fetch fresh data when switching to VIN wise
-    _vwFetching = true;
-    fetchFresh(false).then(() => {
+
+    if (_rows.length) {
+      // Data already loaded — render instantly, then refresh in background if stale
       renderVinWise();
-    }).finally(() => {
-      _vwFetching = false;
       startVwTimer();
-    });
+      const staleMs = 3 * 60 * 1000;
+      const isStale = !_lastSynced || (Date.now() - new Date(_lastSynced)) > staleMs;
+      if (isStale && !_vwFetching) {
+        _vwFetching = true;
+        fetchFresh(false).then(() => renderVinWise()).finally(() => { _vwFetching = false; });
+      }
+    } else {
+      // No data yet (hard refresh) — fetch first, then render
+      if (!_vwFetching) {
+        _vwFetching = true;
+        fetchFresh(false).then(() => {
+          renderVinWise();
+          startVwTimer();
+        }).finally(() => { _vwFetching = false; });
+      }
+    }
   }
 }
 
