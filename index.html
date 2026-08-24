@@ -314,13 +314,7 @@ td:last-child{padding-right:16px;text-align:right}
   </div>
   <div class="sec">
     <div class="sec-hd"><div class="sec-label"><span class="sec-title">Age Breakdown</span><span class="tag tag-teal" id="hr-tag">CREATED AT</span></div></div>
-    <!-- 3 tab buttons -->
-    <div style="display:flex;gap:8px;margin-bottom:12px" id="ab-tabs">
-      <button id="ab-tab-sla"    onclick="setAbTab('sla')"    style="padding:6px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:var(--f-mono);border:1px solid var(--rim);cursor:pointer;transition:all .15s;background:var(--teal);color:#fff">Within SLA</button>
-      <button id="ab-tab-over"   onclick="setAbTab('over')"   style="padding:6px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:var(--f-mono);border:1px solid var(--rim);cursor:pointer;transition:all .15s;background:var(--card);color:var(--t2)">Over SLA</button>
-      <button id="ab-tab-repeat" onclick="setAbTab('repeat')" style="padding:6px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:var(--f-mono);border:1px solid var(--rim);cursor:pointer;transition:all .15s;background:var(--card);color:var(--t2)">Repeat SKU</button>
-    </div>
-    <div class="hour-grid" id="hcards"></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:8px" id="hcards"></div>
   </div>
 
   <!-- Filter by Input Type -->
@@ -707,108 +701,47 @@ function renderMetrics(rows){
   updateResetBtn();
 }
 
-// ── Age breakdown tabs ─────────────────────────────────────────────
-let _abTab = 'sla'; // 'sla' | 'over' | 'repeat'
-
-function setAbTab(tab) {
-  _abTab = tab;
-  // Update button styles
-  ['sla','over','repeat'].forEach(t => {
-    const btn = document.getElementById('ab-tab-' + t);
-    if (!btn) return;
-    const active = t === tab;
-    const colors = { sla: 'var(--teal)', over: 'var(--red)', repeat: 'var(--purple)' };
-    btn.style.background = active ? colors[t] : 'var(--card)';
-    btn.style.color = active ? '#fff' : 'var(--t2)';
-    btn.style.borderColor = active ? colors[t] : 'var(--rim)';
-  });
-  renderHours(f());
-}
+// ── Age breakdown — 3 summary cards ───────────────────────────────
+function setAbTab() {} // no-op, kept for safety
 
 function renderHours(rows){
   const now = Date.now();
   const getAge = r => {
-    const ts = r.createdAt;
-    if (!ts) return null;
-    const d = new Date(ts); if (isNaN(d)) return null;
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
     const h = (now-d)/3600000; return h >= 0 ? h : null;
   };
 
-  const el = document.getElementById('hcards'); el.innerHTML = '';
+  const repeat     = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
+  const nonRepeat  = rows.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
+  const withinSla  = nonRepeat.filter(r => { const h=getAge(r); return h!=null && h<6; });
+  const overSla    = nonRepeat.filter(r => { const h=getAge(r); return h!=null && h>=6; });
 
-  if (_abTab === 'repeat') {
-    // Repeat SKU tab — show enterprise breakdown of repeat SKUs
-    const repeatRows = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
-    const total = repeatRows.length;
-    document.getElementById('hr-tag').textContent = `REPEAT SKU · ${total.toLocaleString()}`;
+  document.getElementById('hr-tag').textContent = `WITHIN SLA · ${withinSla.length} | OVER SLA · ${overSla.length} | REPEAT · ${repeat.length}`;
 
-    // Show single big card + top enterprises
-    const entMap = {};
-    repeatRows.forEach(r => { const e = r.entName||'Unknown'; entMap[e]=(entMap[e]||0)+1; });
-    const topEnts = Object.entries(entMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-    const mx = topEnts[0]?.[1] || 1;
-
-    // Big count card
-    const summary = document.createElement('div');
-    summary.className = 'hcard active'; summary.style.setProperty('--hc','var(--purple)');
-    summary.innerHTML = `<div class="hcard-bg"></div><div class="hcard-range">REPEAT SKU</div>
-      <div class="hcard-n">${total.toLocaleString()}</div>
-      <div class="hcard-pct">first_qc_done set</div>
-      <div class="hcard-bar"><div class="hcard-bar-fill" style="background:var(--purple);width:100%"></div></div>`;
-    el.appendChild(summary);
-
-    topEnts.forEach(([name,n]) => {
-      const p = Math.round(n/mx*100);
-      const d = document.createElement('div');
-      d.className = 'hcard'; d.style.setProperty('--hc','var(--purple)');
-      d.innerHTML = `<div class="hcard-bg"></div><div class="hcard-range" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${name}">${name}</div>
-        <div class="hcard-n">${n}</div>
-        <div class="hcard-pct">${Math.round(n/total*100)}% of repeat</div>
-        <div class="hcard-bar"><div class="hcard-bar-fill" style="background:var(--purple)"></div></div>`;
-      setTimeout(()=>d.querySelector('.hcard-bar-fill').style.width=p+'%',100);
-      el.appendChild(d);
-    });
-    return;
-  }
-
-  // Within SLA / Over SLA tabs
-  const isSla = _abTab === 'sla';
-  const color  = isSla ? 'var(--teal)' : 'var(--red)';
-  const filtered = rows.filter(r => {
-    if (r.firstQcDone && r.firstQcDone.trim() !== '') return false; // exclude repeat
-    const h = getAge(r);
-    return isSla ? (h != null && h < 6) : (h != null && h >= 6);
-  });
-  const total = filtered.length;
-  document.getElementById('hr-tag').textContent = (isSla ? 'WITHIN SLA' : 'OVER SLA') + ` · ${total.toLocaleString()}`;
-
-  // Use buckets filtered to range
-  const bkts = isSla
-    ? BKTS.filter(b => b.min < 6)
-    : BKTS.filter(b => b.min >= 6);
-
-  const obj = {}; bkts.forEach(b => obj[b.k] = 0);
-  filtered.forEach(r => {
-    const h = getAge(r);
-    for (const b of bkts) {
-      if (h >= b.min && (b.max === 9e9 ? true : h < b.max)) { obj[b.k]++; break; }
-    }
-  });
-  const mx = total || 1;
-
-  bkts.forEach(b => {
-    const n = obj[b.k]||0, p = Math.round(n/mx*100), isActive = _activeBkt===b.k;
-    const d = document.createElement('div');
-    d.className = 'hcard'+(isActive?' active':'');
-    d.style.setProperty('--hc', b.c);
-    d.innerHTML = `<div class="hcard-bg"></div><div class="hcard-range">${b.l}</div>
-      <div class="hcard-n">${n.toLocaleString()}</div>
-      <div class="hcard-pct">${p}% of ${isSla?'within SLA':'over SLA'}</div>
-      <div class="hcard-bar"><div class="hcard-bar-fill" style="background:${b.c}"></div></div>`;
-    setTimeout(()=>d.querySelector('.hcard-bar-fill').style.width=p+'%',100);
-    d.onclick = e => { e.stopPropagation(); _activeBkt=_activeBkt===b.k?null:b.k; rerender(); };
-    el.appendChild(d);
-  });
+  const el = document.getElementById('hcards');
+  el.innerHTML = `
+    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px;margin-bottom:4px">WITHIN SLA</div>
+        <div style="font-size:32px;font-weight:800;color:var(--green);letter-spacing:-1.5px;line-height:1">${withinSla.length.toLocaleString()}</div>
+      </div>
+      <div style="font-size:11px;color:var(--green);opacity:.7">age &lt; 6h · non-repeat</div>
+    </div>
+    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px;margin-bottom:4px">OVER SLA</div>
+        <div style="font-size:32px;font-weight:800;color:var(--red);letter-spacing:-1.5px;line-height:1">${overSla.length.toLocaleString()}</div>
+      </div>
+      <div style="font-size:11px;color:var(--red);opacity:.7">age ≥ 6h · non-repeat</div>
+    </div>
+    <div style="background:rgba(180,143,255,.08);border:1px solid rgba(180,143,255,.25);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
+      <div>
+        <div style="font-size:9px;font-family:var(--f-mono);color:var(--purple);letter-spacing:.8px;margin-bottom:4px">REPEAT SKU</div>
+        <div style="font-size:32px;font-weight:800;color:var(--purple);letter-spacing:-1.5px;line-height:1">${repeat.length.toLocaleString()}</div>
+      </div>
+      <div style="font-size:11px;color:var(--purple);opacity:.7">first_qc_done set</div>
+    </div>`;
 }
 
 // ── Input Type filter cards ────────────────────────────────────────
