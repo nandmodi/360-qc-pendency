@@ -725,7 +725,6 @@ function renderMetrics(rows){
     {icon:'🔄',val:total,  label:'QC Unassigned', sub:'Total VINs'},
     {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
     {icon:'👥',val:teams,  label:'Teams',       sub:'Assigned'},
-    {icon:'⏰',val:over24, label:'Over 24h',    sub:'Waiting'},
   ];
   document.getElementById('metrics').innerHTML=items.map(i=>
     `<div class="metric"><div class="metric-icon">${i.icon}</div>
