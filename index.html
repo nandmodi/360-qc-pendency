@@ -311,23 +311,6 @@ td:last-child{padding-right:16px;text-align:right}
       </div>
     </div>
     <div class="metric-strip" id="metrics"></div>
-    <!-- Segment Status inline -->
-    <div style="margin-top:12px">
-      <div style="font-size:11px;font-family:var(--f-mono);color:var(--t3);letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        SEGMENT STATUS <span id="seg-tag" style="color:var(--teal)"></span>
-      </div>
-      <div class="tbl-shell"><div class="tbl-scroll" style="max-height:175px">
-        <table>
-          <thead><tr>
-            <th style="min-width:100px">Segment</th>
-            <th style="text-align:center;color:var(--green)">Within SLA</th>
-            <th style="text-align:center;color:var(--red)">Over SLA</th>
-            <th style="text-align:center;color:var(--purple)">Repeat SKU</th>
-          </tr></thead>
-          <tbody id="seg-tbody"></tbody>
-        </table>
-      </div></div>
-    </div>
   </div>
   <div class="sec">
     <div class="sec-hd"><div class="sec-label"><span class="sec-title">Age Breakdown</span><span class="tag tag-teal" id="hr-tag">CREATED AT</span></div></div>
@@ -913,7 +896,6 @@ function renderCharts(rows){
       <td style="padding:7px 10px;text-align:center;font-family:var(--f-mono);font-weight:600;color:${r.repeat>0?'var(--purple)':'var(--t3)'}">${r.repeat}</td>
     </tr>`).join('');
   }
-  renderSegmentStatus(rows, 'seg-tbody');
   updateResetBtn();
 }
 
