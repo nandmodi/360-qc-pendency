@@ -770,10 +770,10 @@ function renderHours(rows) {
   el.innerHTML = AB_TABS.map(t => {
     const n = counts[t.key];
     const isActive = _abTab === t.key;
-    return `<div onclick="clickAbTab('${t.key}')" style="cursor:pointer;background:${isActive ? t.bg : 'var(--card)'};border:${isActive?'2px':'1px'} solid ${isActive ? t.border : 'var(--rim)'};border-radius:10px;padding:10px 14px;transition:all .15s;user-select:none" onmouseover="this.style.borderColor='${t.border}'" onmouseout="this.style.borderColor='${isActive?t.border:'var(--rim)'}'">
+    return `<div onclick="clickAbTab('${t.key}')" style="cursor:pointer;background:${t.bg};border:${isActive?'2px':'1px'} solid ${t.border};border-radius:10px;padding:10px 14px;transition:all .15s;user-select:none;${isActive?'box-shadow:0 0 0 1px '+t.border:''}">
       <div style="font-size:9px;font-family:var(--f-mono);color:${t.color};letter-spacing:.8px;margin-bottom:4px">${t.label.toUpperCase()}</div>
       <div style="font-size:22px;font-weight:800;color:${t.color};letter-spacing:-1px;line-height:1">${n.toLocaleString()}</div>
-      <div style="font-size:10px;color:${t.color};opacity:.6;margin-top:3px">${isActive ? '▼ filtered' : 'click to filter'}</div>
+      <div style="font-size:10px;color:${t.color};opacity:.6;margin-top:3px">${isActive ? '▼ filtered' : 'SKUs'}</div>
     </div>`;
   }).join('');
 
