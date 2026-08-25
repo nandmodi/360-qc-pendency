@@ -331,7 +331,7 @@ td:last-child{padding-right:16px;text-align:right}
   </div>
   <div class="sec">
     <div class="sec-hd"><div class="sec-label"><span class="sec-title">Age Breakdown</span><span class="tag tag-teal" id="hr-tag">CREATED AT</span></div></div>
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:8px" id="hcards"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px" id="hcards"></div>
   </div>
 
   <!-- Filter by Input Type -->
@@ -643,14 +643,19 @@ function addB(o,h){
 function f(){
   let rows=[..._rows];
   if(_activeInputType) rows=rows.filter(r=>(r.inputType||'').trim()===_activeInputType);
-  if(_activeBkt){
-    const b=BKTS.find(b=>b.k===_activeBkt);
-    if(b) rows=rows.filter(r=>{
-      const ts=r.createdAt;if(!ts)return false;
-      const d=new Date(ts);if(isNaN(d))return false;
-      const h=(Date.now()-d)/3600000;
-      return h>=0&&h>=b.min&&(b.max===9e9?true:h<b.max);
-    });
+  // Age tab filter
+  if(_abTab){
+    const now=Date.now();
+    const getH=r=>{const d=new Date(r.createdAt);return isNaN(d)?null:(now-d)/3600000;};
+    if(_abTab==='repeat'){
+      rows=rows.filter(r=>r.firstQcDone&&r.firstQcDone.trim()!=='');
+    } else {
+      const t=AB_TABS.find(t=>t.key===_abTab);
+      if(t) rows=rows.filter(r=>{
+        if(r.firstQcDone&&r.firstQcDone.trim()!=='')return false;
+        const h=getH(r);return h!=null&&h>=t.min&&(t.max===9e9?true:h<t.max);
+      });
+    }
   }
   if(_activeCustomerSegment) rows=rows.filter(r=>(r.customerSegment||'').trim()===_activeCustomerSegment);
   if(_activeCrmStatus) rows=rows.filter(r=>(r.crmStatus||'').trim()===_activeCrmStatus);
@@ -735,47 +740,53 @@ function renderMetrics(rows){
   updateResetBtn();
 }
 
-// ── Age breakdown — 3 summary cards ───────────────────────────────
-function setAbTab() {} // no-op, kept for safety
+// ── Age breakdown — 4 clickable tab cards ─────────────────────────
+let _abTab = null; // null=none selected
 
-function renderHours(rows){
+function setAbTab() {} // no-op
+
+const AB_TABS = [
+  { key: '0-4',    label: '0–4h',    color: 'var(--green)',  bg: 'rgba(0,200,150,.08)',  border: 'rgba(0,200,150,.3)',  min: 0,  max: 4  },
+  { key: '4-6',    label: '4–6h',    color: 'var(--amber)',  bg: 'rgba(245,166,35,.08)', border: 'rgba(245,166,35,.3)', min: 4,  max: 6  },
+  { key: 'over6',  label: 'Over 6h', color: 'var(--red)',    bg: 'rgba(240,81,110,.08)', border: 'rgba(240,81,110,.3)', min: 6,  max: 9e9 },
+  { key: 'repeat', label: 'Repeat',  color: 'var(--purple)', bg: 'rgba(180,143,255,.08)',border: 'rgba(180,143,255,.3)',min: -1, max: -1  },
+];
+
+function renderHours(rows) {
   const now = Date.now();
-  const getAge = r => {
-    if (!r.createdAt) return null;
-    const d = new Date(r.createdAt); if (isNaN(d)) return null;
-    const h = (now-d)/3600000; return h >= 0 ? h : null;
+  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
+
+  const nonRepeat = rows.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
+  const repeat    = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
+
+  const counts = {
+    '0-4':   nonRepeat.filter(r => { const h=getAge(r); return h!=null&&h>=0&&h<4; }).length,
+    '4-6':   nonRepeat.filter(r => { const h=getAge(r); return h!=null&&h>=4&&h<6; }).length,
+    'over6': nonRepeat.filter(r => { const h=getAge(r); return h!=null&&h>=6; }).length,
+    'repeat': repeat.length,
   };
 
-  const repeat     = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
-  const nonRepeat  = rows.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
-  const withinSla  = nonRepeat.filter(r => { const h=getAge(r); return h!=null && h<6; });
-  const overSla    = nonRepeat.filter(r => { const h=getAge(r); return h!=null && h>=6; });
-
-  document.getElementById('hr-tag').textContent = `WITHIN SLA · ${withinSla.length} | OVER SLA · ${overSla.length} | REPEAT · ${repeat.length}`;
-
   const el = document.getElementById('hcards');
-  el.innerHTML = `
-    <div style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
-      <div>
-        <div style="font-size:9px;font-family:var(--f-mono);color:var(--green);letter-spacing:.8px;margin-bottom:4px">WITHIN SLA</div>
-        <div style="font-size:32px;font-weight:800;color:var(--green);letter-spacing:-1.5px;line-height:1">${withinSla.length.toLocaleString()}</div>
-      </div>
-      <div style="font-size:11px;color:var(--green);opacity:.7">age &lt; 6h · non-repeat</div>
-    </div>
-    <div style="background:rgba(240,81,110,.08);border:1px solid rgba(240,81,110,.25);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
-      <div>
-        <div style="font-size:9px;font-family:var(--f-mono);color:var(--red);letter-spacing:.8px;margin-bottom:4px">OVER SLA</div>
-        <div style="font-size:32px;font-weight:800;color:var(--red);letter-spacing:-1.5px;line-height:1">${overSla.length.toLocaleString()}</div>
-      </div>
-      <div style="font-size:11px;color:var(--red);opacity:.7">age ≥ 6h · non-repeat</div>
-    </div>
-    <div style="background:rgba(180,143,255,.08);border:1px solid rgba(180,143,255,.25);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
-      <div>
-        <div style="font-size:9px;font-family:var(--f-mono);color:var(--purple);letter-spacing:.8px;margin-bottom:4px">REPEAT SKU</div>
-        <div style="font-size:32px;font-weight:800;color:var(--purple);letter-spacing:-1.5px;line-height:1">${repeat.length.toLocaleString()}</div>
-      </div>
-      <div style="font-size:11px;color:var(--purple);opacity:.7">first_qc_done set</div>
+  el.innerHTML = AB_TABS.map(t => {
+    const n = counts[t.key];
+    const isActive = _abTab === t.key;
+    return `<div onclick="clickAbTab('${t.key}')" style="cursor:pointer;background:${isActive ? t.bg : 'var(--card)'};border:${isActive?'2px':'1px'} solid ${isActive ? t.border : 'var(--rim)'};border-radius:10px;padding:10px 14px;transition:all .15s;user-select:none" onmouseover="this.style.borderColor='${t.border}'" onmouseout="this.style.borderColor='${isActive?t.border:'var(--rim)'}'">
+      <div style="font-size:9px;font-family:var(--f-mono);color:${t.color};letter-spacing:.8px;margin-bottom:4px">${t.label.toUpperCase()}</div>
+      <div style="font-size:22px;font-weight:800;color:${t.color};letter-spacing:-1px;line-height:1">${n.toLocaleString()}</div>
+      <div style="font-size:10px;color:${t.color};opacity:.6;margin-top:3px">${isActive ? '▼ filtered' : 'click to filter'}</div>
     </div>`;
+  }).join('');
+
+  document.getElementById('hr-tag').textContent = _abTab
+    ? (AB_TABS.find(t=>t.k===_abTab)?.label || _abTab).toUpperCase()
+    : 'CREATED AT';
+}
+
+function clickAbTab(key) {
+  _abTab = _abTab === key ? null : key; // toggle
+  // Apply as age/repeat filter and rerender
+  _activeBkt = null; // clear old bucket filter
+  rerender();
 }
 
 // ── Segment Status ─────────────────────────────────────────────────
@@ -1171,8 +1182,8 @@ function rerender(){
   updateResetBtn();
 }
 
-function resetAllFilters(){_activeInputType=null;_activeBkt=null;_activeCustomerSegment=null;_activeCrmStatus=null;syncTypeActive();rerender();}
-function anyFilterActive(){return!!(_activeInputType||_activeBkt||_activeCustomerSegment||_activeCrmStatus);}
+function resetAllFilters(){_activeInputType=null;_activeBkt=null;_abTab=null;_activeCustomerSegment=null;_activeCrmStatus=null;syncTypeActive();rerender();}
+function anyFilterActive(){return!!(_activeInputType||_activeBkt||_abTab||_activeCustomerSegment||_activeCrmStatus);}
 function updateResetBtn(){const b=document.getElementById('reset-btn');if(b)b.style.display=anyFilterActive()?'inline-flex':'none';}
 
 // ── Download helpers ───────────────────────────────────────────────
