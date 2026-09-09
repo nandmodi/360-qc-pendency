@@ -1,304 +1,122 @@
-const METABASE_URL = 'https://metabase.spyne.ai';
-const CARD_ID = 12588;
-
-function getValue(row, aliases) {
-  for (const key of aliases) {
-    if (
-      Object.prototype.hasOwnProperty.call(row, key) &&
-      row[key] !== null &&
-      row[key] !== undefined
-    ) {
-      return row[key];
-    }
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
-  return '';
-}
 
-function parseDate(value) {
-  if (!value) return '';
-
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
-}
-
-function normalizeRow(row) {
-  return {
-    sku: getValue(row, [
-      'spin_sku_id',
-      'sku',
-      'sku_id',
-      'SKU ID'
-    ]),
-
-    spinId: getValue(row, [
-      'ss.spin_id',
-      'spin_id',
-      'spinId'
-    ]),
-
-    vin: getValue(row, [
-      'vinName',
-      'vin_name',
-      'vin',
-      'VIN'
-    ]),
-
-    eid: getValue(row, [
-      'enterpriseId',
-      'enterprise_id',
-      'Ent ID'
-    ]),
-
-    entName: getValue(row, [
-      'enterprise_name',
-      'enterpriseName',
-      'Enterprise',
-      'enterprise'
-    ]),
-
-    teamId: getValue(row, [
-      'teamId',
-      'team_id',
-      'Team ID'
-    ]),
-
-    teamName: getValue(row, [
-      'team_name',
-      'teamName',
-      'Team'
-    ]),
-
-    customerSegment: String(
-      getValue(row, [
-        'customer_segment',
-        'customerSegment',
-        'Segment'
-      ]) || ''
-    ).trim(),
-
-    crmStatus: String(
-      getValue(row, [
-        'crm_status',
-        'crmStatus',
-        'CRM Status'
-      ]) || ''
-    ).trim(),
-
-    assignedTeam: getValue(row, [
-      'qc_user',
-      'assigned_user_name',
-      'assignedTeamName',
-      'QC User',
-      'qc_user_name'
-    ]),
-
-    entEmail: getValue(row, [
-      'CS',
-      'OB'
-    ]),
-
-    entStage: getValue(row, [
-      'stage',
-      'Stage'
-    ]),
-
-    finalStatus: getValue(row, [
-      'final_status',
-      'finalStatus',
-      'status',
-      'Status'
-    ]),
-
-    inputType: getValue(row, [
-      'input_type',
-      'inputType',
-      'Input Type'
-    ]),
-
-    platform: getValue(row, [
-      'platform',
-      'Platform'
-    ]),
-
-    make: getValue(row, [
-      'make',
-      'Make'
-    ]),
-
-    model: getValue(row, [
-      'model',
-      'Model'
-    ]),
-
-    year: getValue(row, [
-      'year',
-      'Year'
-    ]),
-
-    thumbnail: getValue(row, [
-      'thumbnail_url',
-      'thumbnail',
-      'Thumbnail'
-    ]),
-
-    vdpUrl: getValue(row, [
-      'vdp_url',
-      'vdpUrl',
-      'VDP URL'
-    ]),
-
-    imgCount: getValue(row, [
-      'image_count',
-      'imgCount',
-      'Image Count'
-    ]) || 0,
-
-    overallScore: getValue(row, [
-      'overall_score',
-      'overallScore'
-    ]),
-
-    vinScore: getValue(row, [
-      'vin_score',
-      'vinScore'
-    ]),
-
-    createdAt: parseDate(
-      getValue(row, [
-        'createdAt',
-        'created_at',
-        'created_on',
-        'vinCreation',
-        'Created At'
-      ])
-    ),
-
-    firstQcDone: getValue(row, [
-      'first_qc_done',
-      'firstQcDone',
-      'First QC Done'
-    ])
-  };
-}
-
-async function metabaseLogin() {
-  const email = process.env.METABASE_EMAIL;
+  const METABASE_URL = 'https://metabase.spyne.ai';
+  const CARD_ID = 12588;
+  const username = process.env.METABASE_EMAIL;
   const password = process.env.METABASE_PASSWORD;
 
-  if (!email || !password) {
-    throw new Error(
-      'METABASE_EMAIL or METABASE_PASSWORD is not configured'
-    );
+  if (!username || !password) {
+    return res.status(500).json({
+      error: 'Metabase credentials are not configured. Set METABASE_EMAIL and METABASE_PASSWORD.'
+    });
   }
 
-  const response = await fetch(`${METABASE_URL}/api/session`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      username: email,
-      password: password
-    })
-  });
+  try {
+    // Login server-side. Credentials never reach the browser.
+    const login = await fetch(`${METABASE_URL}/api/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(
-      `Metabase login failed: HTTP ${response.status} ${text}`
-    );
-  }
+    if (!login.ok) {
+      const text = await login.text();
+      throw new Error(`Metabase login failed (${login.status}): ${text.slice(0, 300)}`);
+    }
 
-  const data = await response.json();
+    const { id: sessionId } = await login.json();
+    if (!sessionId) throw new Error('Metabase did not return a session id');
 
-  if (!data.id) {
-    throw new Error('Metabase login succeeded but no session ID was returned');
-  }
-
-  return data.id;
-}
-
-async function runQuestion(sessionId) {
-  const response = await fetch(
-    `${METABASE_URL}/api/card/${CARD_ID}/query`,
-    {
+    // Execute saved Question 12588.
+    const query = await fetch(`${METABASE_URL}/api/card/${CARD_ID}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Metabase-Session': sessionId
       },
       body: JSON.stringify({})
-    }
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-
-    throw new Error(
-      `Metabase question failed: HTTP ${response.status} ${text}`
-    );
-  }
-
-  return response.json();
-}
-
-function convertMetabaseResult(data) {
-  const columns = data?.data?.cols || [];
-  const rows = data?.data?.rows || [];
-
-  const columnNames = columns.map((column, index) => {
-    return (
-      column.name ||
-      column.display_name ||
-      column.field_ref ||
-      `column_${index}`
-    );
-  });
-
-  return rows.map(row => {
-    const obj = {};
-
-    columnNames.forEach((name, index) => {
-      obj[name] = row[index];
     });
 
-    return obj;
-  });
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({
-      error: 'Method not allowed'
-    });
-  }
-
-  try {
-    const sessionId = await metabaseLogin();
-
-    const result = await runQuestion(sessionId);
-
-    const rawRows = convertMetabaseResult(result);
-
-    const rows = rawRows.map(normalizeRow);
-
-    if (!rows.length) {
-      return res.status(200).json({
-        rows: [],
-        lastSynced: new Date().toISOString()
-      });
+    if (!query.ok) {
+      const text = await query.text();
+      throw new Error(`Metabase question failed (${query.status}): ${text.slice(0, 500)}`);
     }
 
+    const result = await query.json();
+    const data = result?.data;
+    const columns = data?.cols || [];
+    const rawRows = data?.rows || [];
+
+    // Convert Metabase's list-of-lists response into objects.
+    const names = columns.map((c, i) =>
+      c?.name || c?.display_name || c?.field_ref?.[1] || `column_${i}`
+    );
+
+    const rows = rawRows.map(row => {
+      const obj = {};
+      names.forEach((name, i) => { obj[name] = row[i]; });
+      return obj;
+    });
+
+    // Normalize Metabase column names to the exact data contract used by the existing UI.
+    // This keeps the dashboard UI and all its calculations unchanged.
+    const pick = (row, ...keys) => {
+      for (const key of keys) {
+        const value = row?.[key];
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+          return String(value).trim();
+        }
+      }
+      return '';
+    };
+
+    const parseDate = value => {
+      if (!value) return '';
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
+    };
+
+    const normalizedRows = rows.map(r => ({
+      sku: pick(r, 'spin_sku_id', 'sku', 'sku_id', 'SKU ID'),
+      spinId: pick(r, 'spin_id', 'spinId', 'ss.spin_id'),
+      vin: pick(r, 'vinName', 'vin_name', 'vin', 'VIN'),
+      eid: pick(r, 'enterpriseId', 'enterprise_id', 'Ent ID', 'enterprise_id'),
+      entName: pick(r, 'enterprise_name', 'enterpriseName', 'Enterprise', 'enterprise') || pick(r, 'enterpriseId', 'enterprise_id'),
+      teamId: pick(r, 'teamId', 'team_id', 'Team ID'),
+      teamName: pick(r, 'team_name', 'teamName', 'Team'),
+      customerSegment: pick(r, 'customer_segment', 'customerSegment', 'Segment'),
+      crmStatus: pick(r, 'crm_status', 'crmStatus', 'CRM Status'),
+      assignedTeam: pick(r, 'qc_user', 'assigned_user_name', 'assignedTeamName', 'QC User', 'qc_user_name'),
+      entEmail: pick(r, 'CS') || pick(r, 'OB'),
+      entStage: pick(r, 'stage', 'Stage'),
+      finalStatus: pick(r, 'final_status', 'finalStatus', 'status', 'Status'),
+      inputType: pick(r, 'input_type', 'inputType', 'Input Type'),
+      platform: pick(r, 'platform', 'Platform'),
+      make: pick(r, 'make', 'Make'),
+      model: pick(r, 'model', 'Model'),
+      year: pick(r, 'year', 'Year'),
+      thumbnail: pick(r, 'thumbnail_url', 'thumbnail', 'Thumbnail'),
+      vdpUrl: pick(r, 'vdp_url', 'vdpUrl', 'VDP URL'),
+      imgCount: Number(pick(r, 'image_count', 'imgCount', 'Image Count')) || 0,
+      overallScore: pick(r, 'overall_score', 'overallScore'),
+      vinScore: pick(r, 'vin_score', 'vinScore'),
+      createdAt: parseDate(pick(r, 'createdAt', 'created_at', 'created_on', 'vinCreation', 'Created At')),
+      skuCreatedOn: parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'SKU Created On')),
+      firstQcDone: pick(r, 'first_qc_done', 'firstQcDone', 'First QC Done')
+    }));
+
+    // Preserve the frontend contract: { rows, lastSynced }.
     return res.status(200).json({
-      rows,
+      rows: normalizedRows,
       lastSynced: new Date().toISOString()
     });
-
-  } catch (error) {
-    console.error('360 Pendency API error:', error);
-
+  } catch (err) {
+    console.error('360 pendency API error:', err);
     return res.status(500).json({
-      error: error?.message || 'Failed to load Metabase data'
+      error: err?.message || 'Failed to fetch Metabase data'
     });
   }
 }
