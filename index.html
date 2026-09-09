@@ -1407,7 +1407,7 @@ function normaliseRows(rawRows) {
     overallScore:r.overallScore||'',
     vinScore:r.vinScore||'',
     createdAt:r.createdAt||'',
-     skuCreatedOn:r.skuCreatedOn||r.sku_created_on||'',
+    skuCreatedOn:r.skuCreatedOn||r.sku_created_on||'',
     firstQcDone:r.firstQcDone||'',
   }));
 }
@@ -1497,7 +1497,7 @@ const VW_LABELS = ['SKU ID','VIN','Enterprise','Assigned Team','Segment','CRM St
 function dlVwData(section, fmt) {
   const now = Date.now();
   const getAge = r => {
-    if (!r.createdAt) return null;
+    if (!r.skuCreatedOn) return null;
     const d = new Date(r.skuCreatedOn); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
@@ -1560,7 +1560,7 @@ let _vwBelowSort = 'desc', _vwAboveSort = 'desc', _vwRepeatSort = 'desc', _vwCat
 function renderVinWise() {
   const now = Date.now();
   const getAge = r => {
-    if (!r.createdAt) return null;
+    if (!r.skuCreatedOn) return null;
     const d = new Date(r.skuCreatedOn); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
