@@ -629,7 +629,7 @@ function f(){
   // Age tab filter
   if(_abTab){
     const now=Date.now();
-    const getH=r=>{const d=new Date(r.createdAt);return isNaN(d)?null:(now-d)/3600000;};
+    const getH=r=>{const d=new Date(r.skuCreatedOn);return isNaN(d)?null:(now-d)/3600000;};
     if(_abTab==='repeat'){
       rows=rows.filter(r=>r.firstQcDone&&r.firstQcDone.trim()!=='');
     } else {
@@ -705,7 +705,7 @@ function renderMetrics(rows){
   const ents=[...new Set(rows.map(r=>r.eid||r.entName).filter(Boolean))].length;
   const teams=rows.filter(r=>(r.crmStatus||'').trim().toLowerCase()!=='qc_unassigned'&&(r.crmStatus||'').trim()!=='').length;
   const _now=Date.now();
-  const getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
+  const getAge=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
   const over24=rows.filter(r=>{ const h=getAge(r); return h!=null&&h>24; }).length;
   const ageRows=rows.map(getAge).filter(h=>h!=null);
   const avgHrs=ageRows.reduce((s,h)=>s+h,0)/(ageRows.length||1);
@@ -737,7 +737,7 @@ const AB_TABS = [
 
 function renderHours(rows) {
   const now = Date.now();
-  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
+  const getAge = r => { const d=new Date(r.skuCreatedOn); return isNaN(d)?null:(now-d)/3600000; };
 
   const nonRepeat = rows.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
   const repeat    = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
@@ -775,7 +775,7 @@ function clickAbTab(key) {
 // ── Segment Status ─────────────────────────────────────────────────
 function renderSegmentStatus(rows, tbodyId) {
   const now = Date.now();
-  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
+  const getAge = r => { const d=new Date(r.skuCreatedOn); return isNaN(d)?null:(now-d)/3600000; };
   const segMap = {};
   rows.forEach(r => {
     const seg = r.customerSegment?.trim() || '(blank)';
@@ -868,7 +868,7 @@ function renderCharts(rows){
   document.getElementById('ch-crm-sub').textContent = `${rows.length} SKUs`;
   // QC User table: group by qc_user + enterprise, split by age
   const now2 = Date.now();
-  const getA = r => { const d = new Date(r.createdAt); return isNaN(d) ? null : (now2-d)/3600000; };
+  const getA = r => { const d = new Date(r.skuCreatedOn); return isNaN(d) ? null : (now2-d)/3600000; };
   const uMap = {};
   rows.filter(r => r.crmStatus !== 'qc_unassigned' && r.crmStatus !== 'qc_onhold').forEach(r => {
     const user = r.assignedTeam || '—';
@@ -1038,7 +1038,7 @@ function openDrawer(title,rows){
       </div>
     </div>`;
   const _now2=Date.now();
-  const getAge2=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now2-d)/3600000;return h>=0?h:null;};
+  const getAge2=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now2-d)/3600000;return h>=0?h:null;};
   const over24=rows.filter(r=>getAge2(r)!=null&&getAge2(r)>24).length;
   const ageVals=rows.map(getAge2).filter(h=>h!=null);
   const avgHrs=ageVals.reduce((s,h)=>s+h,0)/(ageVals.length||1);
@@ -1099,7 +1099,7 @@ function renderDrawerRows(){
     const skuVal=r.sku||'',vinVal=r.vin||'',entVal=r.entName||r.eid||'',teamVal=r.teamName||'';
     const consoleUrl=(r.eid&&r.teamId&&r.sku)?`https://console.spyne.ai/inventory/v2/listings/${r.sku}?enterprise_id=${r.eid}&team_id=${r.teamId}`:'';
     const _rNow=Date.now();
-    const freshAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+    const freshAge=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
     const ageStr=(h=>{return h!=null?h.toFixed(1)+'h':'—';})(freshAge(r));
     const ageColor=(h=>{return h!=null&&h>12?'var(--red)':h!=null&&h>6?'var(--amber)':'inherit';})(freshAge(r));
     return`<tr>
@@ -1133,7 +1133,7 @@ function rerender(){
   const rows=f(),l=lbl();
   renderMetrics(rows);renderHours(rows);renderCharts(rows);renderTypeCards();
   const _rNow=Date.now();
-  const _getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+  const _getAge=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
 
   // Enterprise
   const eMap={};
@@ -1319,6 +1319,8 @@ function handleUpload(evt){
       const r={};hdrs.forEach((h,i)=>r[h]=vals[i]??'');
       const createdRaw=pk(r,'createdAt','created_at','created_on','vinCreation');
       const createdDate=parseMetaDate(createdRaw);
+      const skuCreatedRaw=pk(r,'sku_created_on','skuCreatedOn','SKU Created On');
+      const skuCreatedDate=parseMetaDate(skuCreatedRaw);
       return{
         sku:pk(r,'spin_sku_id','sku','sku_id'),
         spinId:pk(r,'ss.spin_id','spin_id','spinId'),
@@ -1342,6 +1344,7 @@ function handleUpload(evt){
         overallScore:pk(r,'overall_score','overallScore'),
         vinScore:pk(r,'vin_score','vinScore'),
         createdAt:createdDate?createdDate.toISOString():createdRaw,
+        skuCreatedOn:skuCreatedDate?skuCreatedDate.toISOString():skuCreatedRaw,
       };
     });
     // All rows from this query are already QC pending
@@ -1363,7 +1366,7 @@ function handleUpload(evt){
 
 // ── Local cache helpers ────────────────────────────────────────────
 const LS_KEY = '360-pend-cache';
-const LS_VER = 'v4';
+const LS_VER = 'v5';
 const LS_TTL = 10 * 60 * 1000;
 
 function saveToCache(rows, lastSynced) {
@@ -1404,6 +1407,7 @@ function normaliseRows(rawRows) {
     overallScore:r.overallScore||'',
     vinScore:r.vinScore||'',
     createdAt:r.createdAt||'',
+     skuCreatedOn:r.skuCreatedOn||r.sku_created_on||'',
     firstQcDone:r.firstQcDone||'',
   }));
 }
@@ -1494,7 +1498,7 @@ function dlVwData(section, fmt) {
   const now = Date.now();
   const getAge = r => {
     if (!r.createdAt) return null;
-    const d = new Date(r.createdAt); if (isNaN(d)) return null;
+    const d = new Date(r.skuCreatedOn); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
   const base = [..._rows].filter(r => r.crmStatus === 'qc_unassigned');
@@ -1557,7 +1561,7 @@ function renderVinWise() {
   const now = Date.now();
   const getAge = r => {
     if (!r.createdAt) return null;
-    const d = new Date(r.createdAt); if (isNaN(d)) return null;
+    const d = new Date(r.skuCreatedOn); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
 
