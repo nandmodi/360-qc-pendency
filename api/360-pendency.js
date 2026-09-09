@@ -61,11 +61,22 @@ export default async function handler(req, res) {
       return obj;
     });
 
+    // Build a case-insensitive lookup so sku_created_on is picked reliably
+    // regardless of Metabase's returned column casing/display name.
+    const keyMap = row => {
+      const out = {};
+      for (const [k, v] of Object.entries(row || {})) {
+        out[String(k).trim().toLowerCase()] = v;
+      }
+      return out;
+    };
+
     // Normalize Metabase column names to the exact data contract used by the existing UI.
     // This keeps the dashboard UI and all its calculations unchanged.
     const pick = (row, ...keys) => {
+      const lookup = keyMap(row);
       for (const key of keys) {
-        const value = row?.[key];
+        const value = lookup[String(key).trim().toLowerCase()];
         if (value !== null && value !== undefined && String(value).trim() !== '') {
           return String(value).trim();
         }
