@@ -1,74 +1,304 @@
-// api/360-pendency.js
-const METABASE_CSV_URL =
-            'https://metabase.spyne.ai/public/question/777eeac8-7d6f-49f9-96d4-499cdea1b891.csv';
-let _cache = null, _lastFetch = 0;
-const CACHE_TTL = 0;
-function parseLine(line) {
-            const fields = []; let cur = '', inQ = false, i = 0;
-            while (i < line.length) {
-                          const c = line[i];
-                          if (inQ) { if (c === '"' && line[i+1] === '"') { cur += '"'; i += 2; } else if (c === '"') { inQ = false; i++; } else { cur += c; i++; } }
-                          else { if (c === '"') { inQ = true; i++; } else if (c === ',') { fields.push(cur.trim()); cur = ''; i++; } else { cur += c; i++; } }
-            }
-            fields.push(cur.trim()); return fields;
+const METABASE_URL = 'https://metabase.spyne.ai';
+const CARD_ID = 12588;
+
+function getValue(row, aliases) {
+  for (const key of aliases) {
+    if (
+      Object.prototype.hasOwnProperty.call(row, key) &&
+      row[key] !== null &&
+      row[key] !== undefined
+    ) {
+      return row[key];
+    }
+  }
+  return '';
 }
-function parseCSV(text) {
-            const lines = text.trim().split(/\r?\n/);
-            if (lines.length < 2) return [];
-            const headers = parseLine(lines[0]);
-            return lines.slice(1).filter(l => l.trim()).map(line => {
-                          const vals = parseLine(line); const obj = {};
-                          headers.forEach((h, j) => { obj[h] = (vals[j] ?? '').trim(); }); return obj;
-            });
+
+function parseDate(value) {
+  if (!value) return '';
+
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
 }
-function pick(r, ...names) {
-            for (const n of names) { const v = r[n]; if (v != null && String(v).trim()) return String(v).trim(); } return '';
+
+function normalizeRow(row) {
+  return {
+    sku: getValue(row, [
+      'spin_sku_id',
+      'sku',
+      'sku_id',
+      'SKU ID'
+    ]),
+
+    spinId: getValue(row, [
+      'ss.spin_id',
+      'spin_id',
+      'spinId'
+    ]),
+
+    vin: getValue(row, [
+      'vinName',
+      'vin_name',
+      'vin',
+      'VIN'
+    ]),
+
+    eid: getValue(row, [
+      'enterpriseId',
+      'enterprise_id',
+      'Ent ID'
+    ]),
+
+    entName: getValue(row, [
+      'enterprise_name',
+      'enterpriseName',
+      'Enterprise',
+      'enterprise'
+    ]),
+
+    teamId: getValue(row, [
+      'teamId',
+      'team_id',
+      'Team ID'
+    ]),
+
+    teamName: getValue(row, [
+      'team_name',
+      'teamName',
+      'Team'
+    ]),
+
+    customerSegment: String(
+      getValue(row, [
+        'customer_segment',
+        'customerSegment',
+        'Segment'
+      ]) || ''
+    ).trim(),
+
+    crmStatus: String(
+      getValue(row, [
+        'crm_status',
+        'crmStatus',
+        'CRM Status'
+      ]) || ''
+    ).trim(),
+
+    assignedTeam: getValue(row, [
+      'qc_user',
+      'assigned_user_name',
+      'assignedTeamName',
+      'QC User',
+      'qc_user_name'
+    ]),
+
+    entEmail: getValue(row, [
+      'CS',
+      'OB'
+    ]),
+
+    entStage: getValue(row, [
+      'stage',
+      'Stage'
+    ]),
+
+    finalStatus: getValue(row, [
+      'final_status',
+      'finalStatus',
+      'status',
+      'Status'
+    ]),
+
+    inputType: getValue(row, [
+      'input_type',
+      'inputType',
+      'Input Type'
+    ]),
+
+    platform: getValue(row, [
+      'platform',
+      'Platform'
+    ]),
+
+    make: getValue(row, [
+      'make',
+      'Make'
+    ]),
+
+    model: getValue(row, [
+      'model',
+      'Model'
+    ]),
+
+    year: getValue(row, [
+      'year',
+      'Year'
+    ]),
+
+    thumbnail: getValue(row, [
+      'thumbnail_url',
+      'thumbnail',
+      'Thumbnail'
+    ]),
+
+    vdpUrl: getValue(row, [
+      'vdp_url',
+      'vdpUrl',
+      'VDP URL'
+    ]),
+
+    imgCount: getValue(row, [
+      'image_count',
+      'imgCount',
+      'Image Count'
+    ]) || 0,
+
+    overallScore: getValue(row, [
+      'overall_score',
+      'overallScore'
+    ]),
+
+    vinScore: getValue(row, [
+      'vin_score',
+      'vinScore'
+    ]),
+
+    createdAt: parseDate(
+      getValue(row, [
+        'createdAt',
+        'created_at',
+        'created_on',
+        'vinCreation',
+        'Created At'
+      ])
+    ),
+
+    firstQcDone: getValue(row, [
+      'first_qc_done',
+      'firstQcDone',
+      'First QC Done'
+    ])
+  };
 }
-function parseMetaDate(s) {
-            if (!s) return null;
-            if (s.includes('T') || s.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(s);
-            const d = new Date(s.replace(/,/g,'').trim() + ' UTC'); return isNaN(d) ? null : d;
+
+async function metabaseLogin() {
+  const email = process.env.METABASE_EMAIL;
+  const password = process.env.METABASE_PASSWORD;
+
+  if (!email || !password) {
+    throw new Error(
+      'METABASE_EMAIL or METABASE_PASSWORD is not configured'
+    );
+  }
+
+  const response = await fetch(`${METABASE_URL}/api/session`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      username: email,
+      password: password
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Metabase login failed: HTTP ${response.status} ${text}`
+    );
+  }
+
+  const data = await response.json();
+
+  if (!data.id) {
+    throw new Error('Metabase login succeeded but no session ID was returned');
+  }
+
+  return data.id;
 }
-async function buildCache(force = false) {
-            if (!force && _cache && Date.now() - _lastFetch < CACHE_TTL) return _cache;
-            const now = Date.now();
-            const resp = await fetch(METABASE_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-            if (!resp.ok) throw new Error('Metabase CSV ' + resp.status);
-            const rawRows = parseCSV(await resp.text());
-            const rows = rawRows.map(r => {
-                          const createdRaw = pick(r, 'sku_created_on', 'createdAt', 'created_on');
-                          const createdDate = parseMetaDate(createdRaw);
-                          const fqd = pick(r, 'first_qc_done', 'firstQcDone');
-                          return {
-                                          sku:             pick(r, 'spin_sku_id', 'sku_id', 'sku'),
-                                          spinId:          pick(r, 'ss.spin_id', 'spin_id'),
-                                          vin:             pick(r, 'vinName', 'vin_name', 'vin'),
-                                          eid:             pick(r, 'enterpriseId', 'enterprise_id'),
-                                          entName:         pick(r, 'enterprise_name') || pick(r, 'enterpriseId'),
-                                          teamId:          pick(r, 'teamId', 'team_id'),
-                                          teamName:        pick(r, 'team_name', 'teamName'),
-                                          customerSegment: pick(r, 'customer_segment', 'customerSegment'),
-                                          crmStatus:       pick(r, 'crm_status', 'crmStatus'),
-                                          assignedTeam:    pick(r, 'qc_user', 'assigned_user_name'),
-                                          entEmail:        pick(r, 'CS') || pick(r, 'OB'),
-                                          entStage:        pick(r, 'stage'),
-                                          finalStatus:     pick(r, 'status', 'final_status'),
-                                          inputType:       pick(r, 'input_type', 'inputType'),
-                                          createdAt:       createdDate ? createdDate.toISOString() : createdRaw,
-                                          firstQcDone:     fqd,
-                          };
-            });
-            _cache = { rows, total: rows.length, lastSynced: new Date(now).toISOString() };
-            _lastFetch = now; return _cache;
+
+async function runQuestion(sessionId) {
+  const response = await fetch(
+    `${METABASE_URL}/api/card/${CARD_ID}/query`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Metabase-Session': sessionId
+      },
+      body: JSON.stringify({})
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+
+    throw new Error(
+      `Metabase question failed: HTTP ${response.status} ${text}`
+    );
+  }
+
+  return response.json();
 }
+
+function convertMetabaseResult(data) {
+  const columns = data?.data?.cols || [];
+  const rows = data?.data?.rows || [];
+
+  const columnNames = columns.map((column, index) => {
+    return (
+      column.name ||
+      column.display_name ||
+      column.field_ref ||
+      `column_${index}`
+    );
+  });
+
+  return rows.map(row => {
+    const obj = {};
+
+    columnNames.forEach((name, index) => {
+      obj[name] = row[index];
+    });
+
+    return obj;
+  });
+}
+
 export default async function handler(req, res) {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Cache-Control', 'no-store');
-            if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-            try {
-                          const force = req.query.force === '1';
-                          if (force) { _cache = null; _lastFetch = 0; }
-                          const data = await buildCache(force);
-                          res.status(200).json(data);
-            } catch (err) { res.status(500).json({ error: err.message }); }
+  if (req.method !== 'GET') {
+    return res.status(405).json({
+      error: 'Method not allowed'
+    });
+  }
+
+  try {
+    const sessionId = await metabaseLogin();
+
+    const result = await runQuestion(sessionId);
+
+    const rawRows = convertMetabaseResult(result);
+
+    const rows = rawRows.map(normalizeRow);
+
+    if (!rows.length) {
+      return res.status(200).json({
+        rows: [],
+        lastSynced: new Date().toISOString()
+      });
+    }
+
+    return res.status(200).json({
+      rows,
+      lastSynced: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('360 Pendency API error:', error);
+
+    return res.status(500).json({
+      error: error?.message || 'Failed to load Metabase data'
+    });
+  }
 }
