@@ -1,107 +1,102 @@
-// api/360-processing.js
-// Fetches AI Processing pending SKUs from Metabase question 7225
-const METABASE_URL = 'https://metabase.spyne.ai';
-const CARD_ID = 7225;
-
-let _cache = null, _lastFetch = 0;
-const CACHE_TTL = 15 * 60 * 1000; // 15 min — matches main dashboard
-
-function parseLine(line) {
-  const fields = []; let cur = '', inQ = false, i = 0;
-  while (i < line.length) {
-    const c = line[i];
-    if (inQ) { if (c === '"' && line[i+1] === '"') { cur += '"'; i += 2; } else if (c === '"') { inQ = false; i++; } else { cur += c; i++; } }
-    else { if (c === '"') { inQ = true; i++; } else if (c === ',') { fields.push(cur.trim()); cur = ''; i++; } else { cur += c; i++; } }
+export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
-  fields.push(cur.trim()); return fields;
-}
 
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = parseLine(lines[0]);
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = parseLine(line); const obj = {};
-    headers.forEach((h, j) => { obj[h] = (vals[j] ?? '').trim(); }); return obj;
-  });
-}
-
-function pick(r, ...names) {
-  for (const n of names) { const v = r[n]; if (v != null && String(v).trim()) return String(v).trim(); } return '';
-}
-
-function parseMetaDate(s) {
-  if (!s) return null;
-  if (s.includes('T') || s.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(s);
-  const d = new Date(s.replace(/,/g,'').trim() + ' UTC'); return isNaN(d) ? null : d;
-}
-
-async function buildCache(force = false) {
-  if (!force && _cache && Date.now() - _lastFetch < CACHE_TTL) return _cache;
-  const now = Date.now();
-
+  const METABASE_URL = 'https://metabase.spyne.ai';
+  const CARD_ID = 7225;
   const username = process.env.METABASE_EMAIL;
   const password = process.env.METABASE_PASSWORD;
 
-  let rows = [];
+  if (!username || !password) {
+    return res.status(500).json({
+      error: 'Metabase credentials are not configured. Set METABASE_EMAIL and METABASE_PASSWORD.'
+    });
+  }
 
-  if (username && password) {
-    // Authenticated API approach
+  try {
     const login = await fetch(`${METABASE_URL}/api/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    if (!login.ok) throw new Error('Metabase login failed: ' + login.status);
+
+    if (!login.ok) {
+      const text = await login.text();
+      throw new Error(`Metabase login failed (${login.status}): ${text.slice(0, 300)}`);
+    }
+
     const { id: sessionId } = await login.json();
+    if (!sessionId) throw new Error('Metabase did not return a session id');
 
     const query = await fetch(`${METABASE_URL}/api/card/${CARD_ID}/query`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Metabase-Session': sessionId },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Metabase-Session': sessionId
+      },
       body: JSON.stringify({})
     });
-    if (!query.ok) throw new Error('Metabase query failed: ' + query.status);
+
+    if (!query.ok) {
+      const text = await query.text();
+      throw new Error(`Metabase question failed (${query.status}): ${text.slice(0, 500)}`);
+    }
+
     const result = await query.json();
-    const cols = result?.data?.cols || [];
-    const rawRows = result?.data?.rows || [];
-    const names = cols.map((c, i) => c?.name || c?.display_name || `col_${i}`);
-    rows = rawRows.map(row => { const obj = {}; names.forEach((n, i) => { obj[n] = row[i]; }); return obj; });
-  } else {
-    throw new Error('Metabase credentials not configured');
-  }
+    const data = result?.data;
+    const columns = data?.cols || [];
+    const rawRows = data?.rows || [];
 
-  const normalized = rows.map(r => {
-    const skuCreatedRaw = pick(r, 'sku_created_on', 'skuCreatedOn', 'createdAt', 'created_at');
-    const skuCreatedDate = parseMetaDate(skuCreatedRaw);
-    return {
-      sku:         pick(r, 'spin_sku_id', 'sku_id', 'sku'),
-      vin:         pick(r, 'vinName', 'vin_name', 'vin'),
-      eid:         pick(r, 'enterpriseId', 'enterprise_id'),
-      entName:     pick(r, 'enterprise_name') || pick(r, 'enterpriseId'),
-      inputType:   pick(r, 'input_type', 'inputType'),
-      crmStatus:   pick(r, 'crm_status', 'crmStatus'),
-      assignedTeam: pick(r, 'qc_user', 'assigned_user_name'),
-      customerSegment: pick(r, 'customer_segment', 'customerSegment'),
-      skuCreatedOn: skuCreatedDate ? skuCreatedDate.toISOString() : skuCreatedRaw,
-      createdAt:   skuCreatedDate ? skuCreatedDate.toISOString() : skuCreatedRaw,
+    const names = columns.map((c, i) =>
+      c?.name || c?.display_name || c?.field_ref?.[1] || `column_${i}`
+    );
+
+    const rows = rawRows.map(row => {
+      const obj = {};
+      names.forEach((name, i) => { obj[name] = row[i]; });
+      return obj;
+    });
+
+    const pick = (row, ...keys) => {
+      for (const key of keys) {
+        const value = row?.[key];
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+          return String(value).trim();
+        }
+      }
+      return '';
     };
-  });
 
-  _cache = { rows: normalized, total: normalized.length, lastSynced: new Date(now).toISOString() };
-  _lastFetch = now;
-  return _cache;
-}
+    const parseDate = value => {
+      if (!value) return '';
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
+    };
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-store');
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
-  try {
-    const force = req.query.force === '1';
-    if (force) { _cache = null; _lastFetch = 0; }
-    const data = await buildCache(force);
-    res.status(200).json(data);
+    const normalizedRows = rows.map(r => ({
+      sku:             pick(r, 'spin_sku_id', 'sku', 'sku_id'),
+      vin:             pick(r, 'vinName', 'vin_name', 'vin'),
+      eid:             pick(r, 'enterpriseId', 'enterprise_id'),
+      entName:         pick(r, 'enterprise_name', 'enterpriseName') || pick(r, 'enterpriseId'),
+      inputType:       pick(r, 'input_type', 'inputType'),
+      crmStatus:       pick(r, 'crm_status', 'crmStatus'),
+      customerSegment: pick(r, 'customer_segment', 'customerSegment'),
+      assignedTeam:    pick(r, 'qc_user', 'assigned_user_name'),
+      // Age calculated from sku_created_on
+      createdAt:       parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'createdAt', 'created_at')),
+      skuCreatedOn:    parseDate(pick(r, 'sku_created_on', 'skuCreatedOn')),
+    }));
+
+    return res.status(200).json({
+      rows: normalizedRows,
+      total: normalizedRows.length,
+      lastSynced: new Date().toISOString()
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('360 processing API error:', err);
+    return res.status(500).json({
+      error: err?.message || 'Failed to fetch Metabase data'
+    });
   }
 }
