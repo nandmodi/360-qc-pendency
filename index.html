@@ -1399,12 +1399,11 @@ let _lastSynced = null;
 
 function showData(rows, lastSynced, isStale) {
   _rows = normaliseRows(rows);
-  renderTypeCards();
-  rerender();
+  try { renderTypeCards(); } catch(e) { console.warn('renderTypeCards:', e); }
+  try { rerender(); } catch(e) { console.warn('rerender:', e); }
   requestAnimationFrame(() => {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('uf').style.display = 'none';
-    // Only show dash if pendency tab is active
     if (_activeTab === 'pendency') {
       document.getElementById('dash').style.display = 'block';
     }
@@ -1447,6 +1446,7 @@ function setLoadStep(msg){
   if(el){const d=document.createElement('div');d.textContent='✓ '+msg;el.appendChild(d);}
 }
 async function fetchFresh(showSpinner, forceServer=false) {
+  let fetchedRows = null, fetchedSynced = null;
   try {
     if(showSpinner){
       document.getElementById('load-steps').innerHTML='';
@@ -1462,8 +1462,8 @@ async function fetchFresh(showSpinner, forceServer=false) {
     setLoadStep(`${j.rows.length} VINs loaded`);
     saveToCache(j.rows, j.lastSynced);
     setLoadStep('Processing…');
-    showData(j.rows, j.lastSynced, false);
-    document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
+    fetchedRows = j.rows;
+    fetchedSynced = j.lastSynced;
   } catch(err) {
     if (!_rows.length) {
       document.getElementById('loading').style.display = 'none';
@@ -1472,7 +1472,11 @@ async function fetchFresh(showSpinner, forceServer=false) {
     } else {
       document.getElementById('st-text').textContent = '⚠ Fetch failed — showing cached data';
     }
+    return;
   }
+  // Render outside try so render errors don't mask as fetch errors
+  showData(fetchedRows, fetchedSynced, false);
+  document.getElementById('st-text').textContent = `${_rows.length.toLocaleString()} QC Unassigned`;
 }
 
 // ── VIN Wise download ──────────────────────────────────────────────
