@@ -1,4 +1,4 @@
-// api/360-pendency.js — with session + response caching
+// api/360-pendency.js
 const METABASE_URL = 'https://metabase.spyne.ai';
 const CARD_ID = 12588;
 const CACHE_TTL = 15 * 60 * 1000;
@@ -34,20 +34,20 @@ async function getSession(username, password) {
 
 async function buildCache(username, password) {
   const sessionId = await getSession(username, password);
-  const query = await fetch(`${METABASE_URL}/api/card/${CARD_ID}/query`, {
+
+  // Try /api/card/:id/query/json first (returns JSON array directly)
+  const query = await fetch(`${METABASE_URL}/api/card/${CARD_ID}/query/json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Metabase-Session': sessionId },
     body: JSON.stringify({})
   });
+
   if (!query.ok) { const t = await query.text(); throw new Error(`Query failed (${query.status}): ${t.slice(0,300)}`); }
-  const result = await query.json();
-  const data = result?.data;
-  const columns = data?.cols || [];
-  const rawRows = data?.rows || [];
-  const names = columns.map((c, i) => c?.name || c?.display_name || c?.field_ref?.[1] || `column_${i}`);
-  const rows = rawRows.map(row => {
-    const obj = {}; names.forEach((name, i) => { obj[name] = row[i]; }); return obj;
-  });
+
+  const rows = await query.json(); // returns array of objects directly
+
+  if (!Array.isArray(rows)) throw new Error('Unexpected response format: ' + JSON.stringify(rows).slice(0, 200));
+
   const normalizedRows = rows.map(r => ({
     sku:             pick(r, 'spin_sku_id', 'sku', 'sku_id', 'SKU ID'),
     spinId:          pick(r, 'spin_id', 'spinId', 'ss.spin_id'),
@@ -76,6 +76,7 @@ async function buildCache(username, password) {
     skuCreatedOn:    parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'SKU Created On')),
     firstQcDone:     pick(r, 'first_qc_done', 'firstQcDone', 'First QC Done'),
   }));
+
   _cache = { rows: normalizedRows, lastSynced: new Date().toISOString() };
   _lastFetch = Date.now();
   return _cache;
