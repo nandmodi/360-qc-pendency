@@ -543,11 +543,11 @@ td:last-child{padding-right:16px;text-align:right}
       </div></div>
     </div>
   </div>
-  <!-- VIN Status — assigned users -->
+  <!-- User Assigned -->
   <div style="margin-top:20px">
     <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:8px">
-      VIN Status
-      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">assigned users · by user &amp; enterprise</span>
+      User Assigned
+      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">by user &amp; enterprise</span>
     </div>
     <div class="tbl-shell"><div class="tbl-scroll" style="max-height:175px">
       <table>
@@ -559,6 +559,27 @@ td:last-child{padding-right:16px;text-align:right}
           <th style="text-align:center;color:var(--purple)">Repeat VINs</th>
         </tr></thead>
         <tbody id="vw-user-tbody"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- SKU Wise — assigned user with age -->
+  <div style="margin-top:20px">
+    <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      SKU Wise
+      <span style="font-size:10px;font-family:var(--f-mono);color:var(--t3);font-weight:400">assigned SKUs · user &amp; age</span>
+    </div>
+    <div class="tbl-shell"><div class="tbl-scroll" style="max-height:280px">
+      <table>
+        <thead><tr>
+          <th style="min-width:120px">SKU ID</th>
+          <th style="min-width:160px">VIN</th>
+          <th style="min-width:130px">QC User</th>
+          <th style="min-width:150px">Enterprise</th>
+          <th style="min-width:90px">Status</th>
+          <th style="text-align:right;min-width:80px">Age</th>
+        </tr></thead>
+        <tbody id="vw-skuwise-tbody"></tbody>
       </table>
     </div></div>
   </div>
@@ -1674,6 +1695,30 @@ function renderVinWise() {
   }
   // Segment Status
   renderSegmentStatus([..._rows].filter(r => r.crmStatus === 'qc_unassigned'), 'vw-seg-tbody');
+
+  // SKU Wise — all assigned rows sorted by age desc
+  const skuTbody = document.getElementById('vw-skuwise-tbody');
+  if (skuTbody) {
+    const assigned = [..._rows]
+      .filter(r => r.crmStatus !== 'qc_unassigned' && r.crmStatus !== 'qc_onhold' && r.assignedTeam)
+      .sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+    if (!assigned.length) {
+      skuTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:16px;font-family:var(--f-mono);font-size:10px;color:var(--t3)">No assigned SKUs</td></tr>';
+    } else {
+      skuTbody.innerHTML = assigned.map((r, i) => {
+        const h = getAge(r);
+        const ageColor = h!=null&&h>=6 ? 'var(--red)' : h!=null&&h>=4 ? 'var(--amber)' : 'var(--t2)';
+        return `<tr style="border-top:1px solid var(--rim);${i%2===0?'':'background:var(--card2)'}">
+          <td data-copy="${r.sku||''}" onclick="copyCell(this.dataset.copy,this)" style="padding:5px 8px;font-family:var(--f-mono);font-size:9px;color:var(--t2);cursor:copy;white-space:nowrap">${(r.sku||'').substring(0,12)}…</td>
+          <td data-copy="${r.vin||''}" onclick="copyCell(this.dataset.copy,this)" style="padding:5px 8px;font-family:var(--f-mono);font-size:10px;color:var(--t1);cursor:copy;white-space:nowrap">${r.vin||'—'}</td>
+          <td style="padding:5px 8px;font-size:11px;font-weight:500;color:var(--t1)">${r.assignedTeam||'—'}</td>
+          <td style="padding:5px 8px;font-size:10px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.entName||'—'}</td>
+          <td style="padding:5px 8px;font-size:10px;color:var(--t2)">${r.crmStatus||'—'}</td>
+          <td style="padding:5px 8px;text-align:right;font-family:var(--f-mono);font-weight:600;color:${ageColor};white-space:nowrap">${fmtAge(h)}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
 }
 
 function updateVwRing() {
