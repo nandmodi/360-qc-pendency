@@ -1265,7 +1265,7 @@ function manualRefresh(){
   clearInterval(_refreshTimer);
   try{localStorage.removeItem(LS_KEY);}catch(e){}
   document.getElementById('st-text').textContent='Refreshing…';
-  fetchFresh(true).then(()=>startAutoRefresh());
+  fetchFresh(true, true).then(()=>startAutoRefresh()); // true = showSpinner, true = force server
 }
 
 // ── CSV upload fallback ────────────────────────────────────────────
@@ -1446,13 +1446,14 @@ function setLoadStep(msg){
   const el=document.getElementById('load-steps');
   if(el){const d=document.createElement('div');d.textContent='✓ '+msg;el.appendChild(d);}
 }
-async function fetchFresh(showSpinner) {
+async function fetchFresh(showSpinner, forceServer=false) {
   try {
     if(showSpinner){
       document.getElementById('load-steps').innerHTML='';
       document.getElementById('load-label').textContent='FETCHING 360 QC DATA';
     }
-    const r = await fetch(API);
+    const url = forceServer ? API + '?force=1' : API;
+    const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     setLoadStep('Data received');
     const j = await r.json();
@@ -1770,7 +1771,8 @@ function refreshVinWise() {
   _vwFetching = true;
   const btn = document.querySelector('#vw-refresh-group .refresh-btn');
   if (btn) btn.style.opacity = '0.5';
-  fetchFresh(false).then(() => {
+  try { localStorage.removeItem(LS_KEY); } catch(e) {}
+  fetchFresh(false, true).then(() => {  // force server on manual refresh
     renderVinWise();
   }).finally(() => {
     _vwFetching = false;
