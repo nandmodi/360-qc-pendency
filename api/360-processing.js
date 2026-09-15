@@ -32,7 +32,6 @@ export default async function handler(req, res) {
     const cols = result?.data?.cols || [];
     const rawRows = result?.data?.rows || [];
 
-    // Get ALL column names to debug
     const names = cols.map((c, i) => c?.name || c?.display_name || `col_${i}`);
 
     const pick = (row, ...keys) => {
@@ -55,25 +54,28 @@ export default async function handler(req, res) {
       return r;
     });
 
-    // Return raw column names in first row for debugging + normalized rows
+    // Exact column names from _debug_columns:
+    // "t1.sku_id", "t1.enterprise_id", "enterprise_name", "enterprise_version",
+    // "created_on", "updated_on", "source", "status", "first_qc_done", "Age", "input_type"
     const normalizedRows = rows.map(r => ({
-      sku:             pick(r, 'spin_sku_id', 'sku_id', 'sku', 'SKU', 'id'),
-      vin:             pick(r, 'vinName', 'vin_name', 'vin', 'VIN', 'vehicle_id'),
-      eid:             pick(r, 'enterpriseId', 'enterprise_id', 'client_id'),
-      entName:         pick(r, 'enterprise_name', 'enterpriseName', 'client_name', 'enterprise') || pick(r, 'enterpriseId', 'enterprise_id'),
-      inputType:       pick(r, 'input_type', 'inputType', 'type'),
-      crmStatus:       pick(r, 'crm_status', 'crmStatus', 'status'),
-      customerSegment: pick(r, 'customer_segment', 'customerSegment', 'segment'),
-      assignedTeam:    pick(r, 'qc_user', 'assigned_user_name', 'assignedTeam'),
-      createdAt:       parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'created_at', 'createdAt', 'created_on')),
-      skuCreatedOn:    parseDate(pick(r, 'sku_created_on', 'skuCreatedOn')),
+      sku:             pick(r, 't1.sku_id', 'sku_id', 'spin_sku_id'),
+      vin:             '',  // not available in this question
+      eid:             pick(r, 't1.enterprise_id', 'enterprise_id', 'enterpriseId'),
+      entName:         pick(r, 'enterprise_name', 'enterpriseName') || pick(r, 't1.enterprise_id'),
+      inputType:       pick(r, 'input_type', 'inputType', 'source'),
+      crmStatus:       pick(r, 'status', 'crm_status', 'crmStatus'),
+      firstQcDone:     pick(r, 'first_qc_done', 'firstQcDone'),
+      customerSegment: pick(r, 'customer_segment', 'customerSegment'),
+      assignedTeam:    pick(r, 'qc_user', 'assigned_user_name'),
+      ageHrs:          pick(r, 'Age', 'age'),  // pre-computed age from Metabase
+      createdAt:       parseDate(pick(r, 'created_on', 'sku_created_on', 'createdAt', 'created_at')),
+      skuCreatedOn:    parseDate(pick(r, 'created_on', 'sku_created_on')),
     }));
 
     return res.status(200).json({
       rows: normalizedRows,
       total: normalizedRows.length,
-      lastSynced: new Date().toISOString(),
-      _debug_columns: names  // <-- shows actual column names from Metabase
+      lastSynced: new Date().toISOString()
     });
   } catch (err) {
     console.error('Processing API error:', err);
