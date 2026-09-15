@@ -265,7 +265,7 @@ td:last-child{padding-right:16px;text-align:right}
           <circle class="refresh-ring-bg" cx="17" cy="17" r="14"/>
           <circle class="refresh-ring-fill" id="ring-fill" cx="17" cy="17" r="14" stroke-dasharray="87.96" stroke-dashoffset="0"/>
         </svg>
-        <div class="refresh-ring-label" id="ring-label">3:00</div>
+        <div class="refresh-ring-label" id="ring-label">15:00</div>
       </div>
       <button class="refresh-btn" onclick="manualRefresh()" style="border-radius:0 8px 8px 0;margin-left:-1px">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -385,36 +385,26 @@ td:last-child{padding-right:16px;text-align:right}
     </table></div></div>
   </div>
 
-  <!-- Team breakdown -->
-  <div class="sec">
+  <!-- Processing -->
+  <div class="sec" id="processing-sec">
     <div class="sec-hd">
-      <div class="sec-label"><span class="sec-title">Team Breakdown</span><span class="tag tag-teal" id="team-tag">ALL TEAMS</span></div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <div class="dl-dropdown" id="dl-team-all-dd">
-          <button class="dl-trigger" onclick="toggleDl('dl-team-all-dd')" style="border-color:rgba(45,212,207,.3);color:var(--teal)" title="Download all SKU rows">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            All SKUs
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="dl-menu">
-            <button class="dl-item" onclick="dlAllRows('team','csv');closeDl('dl-team-all-dd')"><span class="dl-item-icon">📄</span>CSV</button>
-            <button class="dl-item" onclick="dlAllRows('team','json');closeDl('dl-team-all-dd')"><span class="dl-item-icon">{ }</span>JSON</button>
-          </div>
-        </div>
-        <div class="dl-strip" id="dl-team"></div>
-      </div>
+      <div class="sec-label"><span class="sec-title">Processing</span><span class="tag tag-teal" id="proc-tag">AI PENDING</span></div>
+      <button onclick="dlProcCsv()" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;border:1px solid rgba(45,212,207,.3);background:rgba(45,212,207,.06);color:var(--teal);font-size:11px;font-family:var(--f-mono);font-weight:500;cursor:pointer">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
     </div>
     <div class="tbl-shell"><div class="tbl-scroll"><table>
       <thead><tr>
-        <th style="min-width:200px"># Team</th>
-        <th style="min-width:100px">Team ID</th>
-        <th style="min-width:120px">Segment</th>
-        <th style="min-width:180px">POC Email</th>
-        <th style="min-width:150px">Assigned Team</th>
-        <th>0–2h</th><th>2–4h</th><th>4–6h</th><th>6–12h</th><th>12+h</th>
-        <th>Total</th>
+        <th style="min-width:130px">SKU ID</th>
+        <th style="min-width:160px">VIN</th>
+        <th style="min-width:90px">Ent ID</th>
+        <th style="min-width:180px">Enterprise</th>
+        <th style="min-width:100px">Input Type</th>
+        <th style="min-width:120px">CRM Status</th>
+        <th>Age</th>
       </tr></thead>
-      <tbody id="team-tbody"></tbody>
+      <tbody id="proc-tbody"></tbody>
     </table></div></div>
   </div>
 </div>
@@ -629,7 +619,7 @@ function f(){
   // Age tab filter
   if(_abTab){
     const now=Date.now();
-    const getH=r=>{const d=new Date(r.skuCreatedOn);return isNaN(d)?null:(now-d)/3600000;};
+    const getH=r=>{const d=new Date(r.createdAt);return isNaN(d)?null:(now-d)/3600000;};
     if(_abTab==='repeat'){
       rows=rows.filter(r=>r.firstQcDone&&r.firstQcDone.trim()!=='');
     } else {
@@ -704,19 +694,17 @@ function renderMetrics(rows){
   const total=rows.length;
   const ents=[...new Set(rows.map(r=>r.eid||r.entName).filter(Boolean))].length;
   const teams=rows.filter(r=>(r.crmStatus||'').trim().toLowerCase()!=='qc_unassigned'&&(r.crmStatus||'').trim()!=='').length;
-  const _now=Date.now();
-  const getAge=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now-d)/3600000;return h>=0?h:null;};
-  const over24=rows.filter(r=>{ const h=getAge(r); return h!=null&&h>24; }).length;
-  const ageRows=rows.map(getAge).filter(h=>h!=null);
-  const avgHrs=ageRows.reduce((s,h)=>s+h,0)/(ageRows.length||1);
+  const procCount = _procRows.length;
   const items=[
-    {icon:'🔄',val:total,  label:'QC Unassigned', sub:'Total VINs'},
-    {icon:'🏢',val:ents,   label:'Enterprises', sub:'Unique'},
-    {icon:'👥',val:teams,  label:'Teams',       sub:'Assigned'},
+    {icon:'🔄',val:total,     label:'QC Unassigned', sub:'Total VINs'},
+    {icon:'🏢',val:ents,      label:'Enterprises',    sub:'Unique'},
+    {icon:'👥',val:teams,     label:'Teams',          sub:'Assigned'},
+    {icon:'⚙️',val:procCount, label:'Processing',     sub:'AI Pending',  click:true},
   ];
   document.getElementById('metrics').innerHTML=items.map(i=>
-    `<div class="metric"><div class="metric-icon">${i.icon}</div>
-     <div class="metric-val" ${i.val>9999&&!i.isStr?'style="font-size:24px"':''}>${typeof i.val==='number'?i.val.toLocaleString():i.val}</div>
+    `<div class="metric" ${i.click?'onclick="scrollToProcessing()" style="cursor:pointer" title="View Processing list"':''}>
+     <div class="metric-icon">${i.icon}</div>
+     <div class="metric-val" ${i.val>9999?'style="font-size:24px"':''}>${typeof i.val==='number'?i.val.toLocaleString():i.val}</div>
      <div class="metric-label">${i.label}</div>
      <div class="metric-sub">${i.sub}</div></div>`).join('');
   document.getElementById('overview-tag').textContent=`QC UNASSIGNED · ${total.toLocaleString()} VINs`;
@@ -737,7 +725,7 @@ const AB_TABS = [
 
 function renderHours(rows) {
   const now = Date.now();
-  const getAge = r => { const d=new Date(r.skuCreatedOn); return isNaN(d)?null:(now-d)/3600000; };
+  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
 
   const nonRepeat = rows.filter(r => !r.firstQcDone || r.firstQcDone.trim() === '');
   const repeat    = rows.filter(r => r.firstQcDone && r.firstQcDone.trim() !== '');
@@ -775,7 +763,7 @@ function clickAbTab(key) {
 // ── Segment Status ─────────────────────────────────────────────────
 function renderSegmentStatus(rows, tbodyId) {
   const now = Date.now();
-  const getAge = r => { const d=new Date(r.skuCreatedOn); return isNaN(d)?null:(now-d)/3600000; };
+  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
   const segMap = {};
   rows.forEach(r => {
     const seg = r.customerSegment?.trim() || '(blank)';
@@ -868,7 +856,7 @@ function renderCharts(rows){
   document.getElementById('ch-crm-sub').textContent = `${rows.length} SKUs`;
   // QC User table: group by qc_user + enterprise, split by age
   const now2 = Date.now();
-  const getA = r => { const d = new Date(r.skuCreatedOn); return isNaN(d) ? null : (now2-d)/3600000; };
+  const getA = r => { const d = new Date(r.createdAt); return isNaN(d) ? null : (now2-d)/3600000; };
   const uMap = {};
   rows.filter(r => r.crmStatus !== 'qc_unassigned' && r.crmStatus !== 'qc_onhold').forEach(r => {
     const user = r.assignedTeam || '—';
@@ -1038,7 +1026,7 @@ function openDrawer(title,rows){
       </div>
     </div>`;
   const _now2=Date.now();
-  const getAge2=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now2-d)/3600000;return h>=0?h:null;};
+  const getAge2=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_now2-d)/3600000;return h>=0?h:null;};
   const over24=rows.filter(r=>getAge2(r)!=null&&getAge2(r)>24).length;
   const ageVals=rows.map(getAge2).filter(h=>h!=null);
   const avgHrs=ageVals.reduce((s,h)=>s+h,0)/(ageVals.length||1);
@@ -1099,7 +1087,7 @@ function renderDrawerRows(){
     const skuVal=r.sku||'',vinVal=r.vin||'',entVal=r.entName||r.eid||'',teamVal=r.teamName||'';
     const consoleUrl=(r.eid&&r.teamId&&r.sku)?`https://console.spyne.ai/inventory/v2/listings/${r.sku}?enterprise_id=${r.eid}&team_id=${r.teamId}`:'';
     const _rNow=Date.now();
-    const freshAge=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+    const freshAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
     const ageStr=(h=>{return h!=null?h.toFixed(1)+'h':'—';})(freshAge(r));
     const ageColor=(h=>{return h!=null&&h>12?'var(--red)':h!=null&&h>6?'var(--amber)':'inherit';})(freshAge(r));
     return`<tr>
@@ -1133,7 +1121,7 @@ function rerender(){
   const rows=f(),l=lbl();
   renderMetrics(rows);renderHours(rows);renderCharts(rows);renderTypeCards();
   const _rNow=Date.now();
-  const _getAge=r=>{const ts=r.skuCreatedOn;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
+  const _getAge=r=>{const ts=r.createdAt;if(!ts)return null;const d=new Date(ts);if(isNaN(d))return null;const h=(_rNow-d)/3600000;return h>=0?h:null;};
 
   // Enterprise
   const eMap={};
@@ -1250,7 +1238,7 @@ function toggleTheme(){
 (()=>{const s=localStorage.getItem('360-pend-theme');if(s){document.documentElement.setAttribute('data-theme',s);document.getElementById('tbtn').textContent=s==='dark'?'🌙':'☀️';setLogo(s);}else{setLogo('dark');}})();
 
 // ── Auto-refresh ───────────────────────────────────────────────────
-const AUTO_MS=3*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
+const AUTO_MS=15*60*1000;let _refreshStart=Date.now(),_refreshTimer=null;
 const RING_CIRC=87.96;
 function startAutoRefresh(){
   clearInterval(_refreshTimer);_refreshStart=Date.now();updateRing();
@@ -1319,8 +1307,6 @@ function handleUpload(evt){
       const r={};hdrs.forEach((h,i)=>r[h]=vals[i]??'');
       const createdRaw=pk(r,'createdAt','created_at','created_on','vinCreation');
       const createdDate=parseMetaDate(createdRaw);
-      const skuCreatedRaw=pk(r,'sku_created_on','skuCreatedOn','SKU Created On');
-      const skuCreatedDate=parseMetaDate(skuCreatedRaw);
       return{
         sku:pk(r,'spin_sku_id','sku','sku_id'),
         spinId:pk(r,'ss.spin_id','spin_id','spinId'),
@@ -1344,7 +1330,6 @@ function handleUpload(evt){
         overallScore:pk(r,'overall_score','overallScore'),
         vinScore:pk(r,'vin_score','vinScore'),
         createdAt:createdDate?createdDate.toISOString():createdRaw,
-        skuCreatedOn:skuCreatedDate?skuCreatedDate.toISOString():skuCreatedRaw,
       };
     });
     // All rows from this query are already QC pending
@@ -1366,7 +1351,7 @@ function handleUpload(evt){
 
 // ── Local cache helpers ────────────────────────────────────────────
 const LS_KEY = '360-pend-cache';
-const LS_VER = 'v5';
+const LS_VER = 'v4';
 const LS_TTL = 10 * 60 * 1000;
 
 function saveToCache(rows, lastSynced) {
@@ -1407,7 +1392,6 @@ function normaliseRows(rawRows) {
     overallScore:r.overallScore||'',
     vinScore:r.vinScore||'',
     createdAt:r.createdAt||'',
-    skuCreatedOn:r.skuCreatedOn||r.sku_created_on||'',
     firstQcDone:r.firstQcDone||'',
   }));
 }
@@ -1497,8 +1481,8 @@ const VW_LABELS = ['SKU ID','VIN','Enterprise','Assigned Team','Segment','CRM St
 function dlVwData(section, fmt) {
   const now = Date.now();
   const getAge = r => {
-    if (!r.skuCreatedOn) return null;
-    const d = new Date(r.skuCreatedOn); if (isNaN(d)) return null;
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
   const base = [..._rows].filter(r => r.crmStatus === 'qc_unassigned');
@@ -1560,8 +1544,8 @@ let _vwBelowSort = 'desc', _vwAboveSort = 'desc', _vwRepeatSort = 'desc', _vwCat
 function renderVinWise() {
   const now = Date.now();
   const getAge = r => {
-    if (!r.skuCreatedOn) return null;
-    const d = new Date(r.skuCreatedOn); if (isNaN(d)) return null;
+    if (!r.createdAt) return null;
+    const d = new Date(r.createdAt); if (isNaN(d)) return null;
     const h = (now - d) / 3600000; return h >= 0 ? h : null;
   };
 
@@ -1795,7 +1779,80 @@ function refreshVinWise() {
   });
 }
 
+// ── Processing data ────────────────────────────────────────────────
+const PROC_API = '/api/360-processing';
+let _procRows = [];
+
+async function loadProcessing() {
+  try {
+    const r = await fetch(PROC_API);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    _procRows = (j.rows || []).map(r => ({
+      sku:        r.sku || r.spin_sku_id || '',
+      vin:        r.vin || r.vinName || '',
+      eid:        r.eid || r.enterpriseId || '',
+      entName:    r.entName || r.enterprise_name || '',
+      inputType:  r.inputType || r.input_type || '',
+      crmStatus:  r.crmStatus || r.crm_status || '',
+      createdAt:  r.skuCreatedOn || r.createdAt || '',
+    }));
+    renderProcessing();
+    renderMetrics(f()); // refresh count card
+  } catch(e) {
+    console.warn('Processing fetch failed:', e.message);
+  }
+}
+
+function renderProcessing() {
+  const now = Date.now();
+  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
+  const fmtH = h => h==null ? '—' : Math.floor(h)+'h '+String(Math.round((h%1)*60)).padStart(2,'0')+'m';
+
+  const tbody = document.getElementById('proc-tbody');
+  const tag   = document.getElementById('proc-tag');
+  if (tag) tag.textContent = `${_procRows.length.toLocaleString()} PROCESSING`;
+  if (!tbody) return;
+  if (!_procRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="no-data">No processing SKUs</td></tr>';
+    return;
+  }
+  const sorted = [..._procRows].sort((a,b) => (getAge(b)||0) - (getAge(a)||0));
+  tbody.innerHTML = sorted.map((r,i) => {
+    const h = getAge(r);
+    const ageColor = h!=null&&h>6 ? 'var(--red)' : h!=null&&h>4 ? 'var(--amber)' : 'inherit';
+    return `<tr>
+      <td><span style="font-family:var(--f-mono);font-size:9px">${(r.sku||'').substring(0,14)}…</span></td>
+      <td style="font-family:var(--f-mono);font-size:10px">${r.vin||'—'}</td>
+      <td><span style="font-family:var(--f-mono);font-size:9px;color:var(--t2)">${(r.eid||'').substring(0,8)}…</span></td>
+      <td style="font-size:11px">${r.entName||'—'}</td>
+      <td>${r.inputType ? `<span class="itype-chip ${r.inputType.toLowerCase().includes('video')?'itype-video':'itype-image'}">${r.inputType}</span>` : '—'}</td>
+      <td style="font-size:10px;color:var(--t2)">${r.crmStatus||'—'}</td>
+      <td style="font-family:var(--f-mono);color:${ageColor};font-weight:${h!=null&&h>4?'600':'400'}">${fmtH(h)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function dlProcCsv() {
+  if (!_procRows.length) return;
+  const now = Date.now();
+  const getAge = r => { const d=new Date(r.createdAt); return isNaN(d)?null:(now-d)/3600000; };
+  const hdrs = ['SKU ID','VIN','Ent ID','Enterprise','Input Type','CRM Status','Age (hrs)'];
+  const csv = [hdrs.join(','), ...[..._procRows].map(r => {
+    const h = getAge(r);
+    return [r.sku,r.vin,r.eid,r.entName,r.inputType,r.crmStatus,h!=null?h.toFixed(2):''].map(v=>{
+      const s=String(v??''); return /[,"]/.test(s)?`"${s.replace(/"/g,'""')}"`  :s;
+    }).join(',');
+  })].join('\n');
+  dl(new Blob([csv],{type:'text/csv'}),'360-processing.csv');
+}
+
+function scrollToProcessing() {
+  document.getElementById('processing-sec')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 loadData();
+loadProcessing();
 </script>
 
 </body>
