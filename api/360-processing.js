@@ -9,9 +9,7 @@ export default async function handler(req, res) {
   const password = process.env.METABASE_PASSWORD;
 
   if (!username || !password) {
-    return res.status(500).json({
-      error: 'Metabase credentials are not configured. Set METABASE_EMAIL and METABASE_PASSWORD.'
-    });
+    return res.status(500).json({ error: 'Metabase credentials not configured.' });
   }
 
   try {
@@ -20,83 +18,65 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-
-    if (!login.ok) {
-      const text = await login.text();
-      throw new Error(`Metabase login failed (${login.status}): ${text.slice(0, 300)}`);
-    }
-
+    if (!login.ok) throw new Error(`Login failed (${login.status})`);
     const { id: sessionId } = await login.json();
-    if (!sessionId) throw new Error('Metabase did not return a session id');
 
     const query = await fetch(`${METABASE_URL}/api/card/${CARD_ID}/query`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Metabase-Session': sessionId
-      },
+      headers: { 'Content-Type': 'application/json', 'X-Metabase-Session': sessionId },
       body: JSON.stringify({})
     });
-
-    if (!query.ok) {
-      const text = await query.text();
-      throw new Error(`Metabase question failed (${query.status}): ${text.slice(0, 500)}`);
-    }
+    if (!query.ok) throw new Error(`Query failed (${query.status})`);
 
     const result = await query.json();
-    const data = result?.data;
-    const columns = data?.cols || [];
-    const rawRows = data?.rows || [];
+    const cols = result?.data?.cols || [];
+    const rawRows = result?.data?.rows || [];
 
-    const names = columns.map((c, i) =>
-      c?.name || c?.display_name || c?.field_ref?.[1] || `column_${i}`
-    );
-
-    const rows = rawRows.map(row => {
-      const obj = {};
-      names.forEach((name, i) => { obj[name] = row[i]; });
-      return obj;
-    });
+    // Get ALL column names to debug
+    const names = cols.map((c, i) => c?.name || c?.display_name || `col_${i}`);
 
     const pick = (row, ...keys) => {
-      for (const key of keys) {
-        const value = row?.[key];
-        if (value !== null && value !== undefined && String(value).trim() !== '') {
-          return String(value).trim();
-        }
+      for (const k of keys) {
+        const v = row?.[k];
+        if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
       }
       return '';
     };
 
-    const parseDate = value => {
-      if (!value) return '';
-      const d = new Date(value);
-      return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
+    const parseDate = v => {
+      if (!v) return '';
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? String(v) : d.toISOString();
     };
 
+    const rows = rawRows.map(row => {
+      const r = {};
+      names.forEach((n, i) => { r[n] = row[i]; });
+      return r;
+    });
+
+    // Return raw column names in first row for debugging + normalized rows
     const normalizedRows = rows.map(r => ({
-      sku:             pick(r, 'spin_sku_id', 'sku', 'sku_id'),
-      vin:             pick(r, 'vinName', 'vin_name', 'vin'),
-      eid:             pick(r, 'enterpriseId', 'enterprise_id'),
-      entName:         pick(r, 'enterprise_name', 'enterpriseName') || pick(r, 'enterpriseId'),
-      inputType:       pick(r, 'input_type', 'inputType'),
-      crmStatus:       pick(r, 'crm_status', 'crmStatus'),
-      customerSegment: pick(r, 'customer_segment', 'customerSegment'),
-      assignedTeam:    pick(r, 'qc_user', 'assigned_user_name'),
-      // Age calculated from sku_created_on
-      createdAt:       parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'createdAt', 'created_at')),
+      sku:             pick(r, 'spin_sku_id', 'sku_id', 'sku', 'SKU', 'id'),
+      vin:             pick(r, 'vinName', 'vin_name', 'vin', 'VIN', 'vehicle_id'),
+      eid:             pick(r, 'enterpriseId', 'enterprise_id', 'client_id'),
+      entName:         pick(r, 'enterprise_name', 'enterpriseName', 'client_name', 'enterprise') || pick(r, 'enterpriseId', 'enterprise_id'),
+      inputType:       pick(r, 'input_type', 'inputType', 'type'),
+      crmStatus:       pick(r, 'crm_status', 'crmStatus', 'status'),
+      customerSegment: pick(r, 'customer_segment', 'customerSegment', 'segment'),
+      assignedTeam:    pick(r, 'qc_user', 'assigned_user_name', 'assignedTeam'),
+      createdAt:       parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'created_at', 'createdAt', 'created_on')),
       skuCreatedOn:    parseDate(pick(r, 'sku_created_on', 'skuCreatedOn')),
     }));
 
     return res.status(200).json({
       rows: normalizedRows,
       total: normalizedRows.length,
-      lastSynced: new Date().toISOString()
+      lastSynced: new Date().toISOString(),
+      _debug_columns: names  // <-- shows actual column names from Metabase
     });
   } catch (err) {
-    console.error('360 processing API error:', err);
-    return res.status(500).json({
-      error: err?.message || 'Failed to fetch Metabase data'
-    });
+    console.error('Processing API error:', err);
+    return res.status(500).json({ error: err?.message });
   }
 }
