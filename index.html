@@ -1391,7 +1391,7 @@ function normaliseRows(rawRows) {
     imgCount:r.imgCount||0,
     overallScore:r.overallScore||'',
     vinScore:r.vinScore||'',
-    createdAt:r.createdAt||'',
+    createdAt:r.skuCreatedOn||r.createdAt||'',
     firstQcDone:r.firstQcDone||'',
   }));
 }
