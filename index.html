@@ -279,7 +279,7 @@ td:last-child{padding-right:16px;text-align:right}
           <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--rim)"/>
           <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--teal)" id="vw-ring" stroke-dasharray="87.96" stroke-dashoffset="0"/>
         </svg>
-        <div class="refresh-ring-label" id="vw-ring-label">1:00</div>
+        <div class="refresh-ring-label" id="vw-ring-label">1:30</div>
       </div>
       <button class="refresh-btn" onclick="refreshVinWise()" style="border-radius:0 8px 8px 0;margin-left:-1px">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -1555,7 +1555,7 @@ function dlVwData(section, fmt) {
 }
 
 
-const VW_AUTO_MS = 1 * 60 * 1000;
+const VW_AUTO_MS = 60 * 1000;
 const VW_RING_CIRC = 87.96;
 let _vwTimer = null, _vwStart = Date.now();
 
@@ -1814,18 +1814,35 @@ function switchTab(tab) {
 function openVinWise() { switchTab('vinwise'); }
 function closeVinWise() { switchTab('pendency'); }
 
+let _vwLastForce = 0;
+const VW_FORCE_COOLDOWN = 60 * 1000;
+
 function refreshVinWise() {
   if (_vwFetching) return;
+  // Client-side cooldown check — mirrors server rate limit
+  const timeSince = Date.now() - _vwLastForce;
+  const btn = document.querySelector('#vw-refresh-group .refresh-btn');
+  if (timeSince < VW_FORCE_COOLDOWN) {
+    const waitSec = Math.ceil((VW_FORCE_COOLDOWN - timeSince) / 1000);
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = `Wait ${waitSec}s`;
+      btn.style.opacity = '0.5';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = orig; btn.style.opacity = ''; btn.disabled = false; }, (VW_FORCE_COOLDOWN - timeSince));
+    }
+    return;
+  }
+  _vwLastForce = Date.now();
   clearInterval(_vwTimer);
   _vwFetching = true;
-  const btn = document.querySelector('#vw-refresh-group .refresh-btn');
-  if (btn) btn.style.opacity = '0.5';
+  if (btn) { btn.style.opacity = '0.5'; btn.disabled = true; }
   try { localStorage.removeItem(LS_KEY); } catch(e) {}
-  fetchFresh(false, true).then(() => {  // force server on manual refresh
+  fetchFresh(false, true).then(() => {
     renderVinWise();
   }).finally(() => {
     _vwFetching = false;
-    if (btn) btn.style.opacity = '';
+    if (btn) { btn.style.opacity = ''; btn.disabled = false; }
     startVwTimer();
   });
 }
