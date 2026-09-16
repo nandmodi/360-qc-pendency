@@ -7,6 +7,8 @@ let _cache = null;
 let _lastFetch = 0;
 let _session = null;
 let _sessionTime = 0;
+const FORCE_COOLDOWN = 60 * 1000;
+let _lastForce = 0;
 const SESSION_TTL = 55 * 60 * 1000;
 
 const pick = (row, ...keys) => {
@@ -87,7 +89,16 @@ export default async function handler(req, res) {
 
   try {
     const force = req.query.force === '1';
-    if (force) { _cache = null; _lastFetch = 0; }
+    if (force) {
+      const timeSinceLastForce = Date.now() - _lastForce;
+      if (timeSinceLastForce < FORCE_COOLDOWN) {
+        const waitSec = Math.ceil((FORCE_COOLDOWN - timeSinceLastForce) / 1000);
+        if (_cache) return res.status(200).json({ ..._cache, rateLimited: true, retryAfter: waitSec });
+        return res.status(429).json({ error: `Force refresh rate limited. Try again in ${waitSec}s.`, retryAfter: waitSec });
+      }
+      _lastForce = Date.now();
+      _cache = null; _lastFetch = 0;
+    }
     if (_cache && !force && Date.now() - _lastFetch < CACHE_TTL) {
       return res.status(200).json(_cache);
     }
