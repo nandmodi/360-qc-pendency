@@ -1753,9 +1753,19 @@ function startVwTimer() {
     updateVwRing();
     if (!_vwFetching && Date.now() - _vwStart >= VW_AUTO_MS) {
       _vwFetching = true;
-      _vwStart = Date.now(); // reset immediately so ring restarts
-      fetchFresh(false).then(() => {
-        renderVinWise();
+      _vwStart = Date.now();
+      const syncEl = document.getElementById('vw-sync');
+      if (syncEl) syncEl.textContent = '🔄 Refreshing…';
+      // auto=1 bypasses rate limit but still busts cache
+      fetch(API + '?auto=1').then(r => r.json()).then(j => {
+        if (j.rows?.length) {
+          saveToCache(j.rows, j.lastSynced);
+          showData(j.rows, j.lastSynced, false);
+          renderVinWise();
+          if (syncEl) syncEl.textContent = '✓ Synced ' + new Date().toLocaleTimeString();
+        }
+      }).catch(() => {
+        if (syncEl) syncEl.textContent = '⚠ Refresh failed';
       }).finally(() => { _vwFetching = false; });
     }
   }, 1000);
