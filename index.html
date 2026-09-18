@@ -280,7 +280,7 @@ td:last-child{padding-right:16px;text-align:right}
           <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--rim)"/>
           <circle fill="none" stroke-width="2.5" stroke-linecap="round" cx="17" cy="17" r="14" stroke="var(--teal)" id="vw-ring" stroke-dasharray="87.96" stroke-dashoffset="0"/>
         </svg>
-        <div class="refresh-ring-label" id="vw-ring-label">1:00</div>
+        <div class="refresh-ring-label" id="vw-ring-label">60s</div>
       </div>
     </div>
   </div>
@@ -1740,7 +1740,7 @@ function updateVwRing() {
   if (!ring || !label) return;
   ring.style.strokeDashoffset = (VW_RING_CIRC * progress).toFixed(2);
   const ts = Math.ceil(remaining / 1000);
-  label.textContent = String(Math.floor(ts/60)).padStart(2,'0') + ':' + String(ts%60).padStart(2,'0');
+  label.textContent = String(ts) + 's';
   ring.style.stroke = remaining < 15000 ? 'var(--red)' : 'var(--teal)';
 }
 
