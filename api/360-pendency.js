@@ -93,10 +93,10 @@ export default async function handler(req, res) {
   if (!username || !password) return res.status(500).json({ error: 'Metabase credentials not configured.' });
   try {
     const force = req.query.force === '1';
+    const auto  = req.query.auto  === '1';
     if (force) {
       const timeSinceLastForce = Date.now() - _lastForce;
       if (timeSinceLastForce < FORCE_COOLDOWN) {
-        // Rate limited — serve cache if available, else wait
         const waitSec = Math.ceil((FORCE_COOLDOWN - timeSinceLastForce) / 1000);
         if (_cache) return res.status(200).json({ ..._cache, rateLimited: true, retryAfter: waitSec });
         return res.status(429).json({ error: `Force refresh rate limited. Try again in ${waitSec}s.`, retryAfter: waitSec });
@@ -104,7 +104,8 @@ export default async function handler(req, res) {
       _lastForce = Date.now();
       _cache = null; _lastFetch = 0;
     }
-    if (_cache && !force && Date.now() - _lastFetch < CACHE_TTL) return res.status(200).json(_cache);
+    if (auto) { _cache = null; _lastFetch = 0; }
+    if (_cache && !force && !auto && Date.now() - _lastFetch < CACHE_TTL) return res.status(200).json(_cache);
     const data = await buildCache(username, password);
     return res.status(200).json(data);
   } catch (err) {
