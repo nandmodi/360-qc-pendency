@@ -1,85 +1,77 @@
 // api/360-pendency.js
-const METABASE_URL = 'https://metabase.spyne.ai';
-const CARD_ID = 12588;
-const CACHE_TTL = 15 * 60 * 1000;
-const SESSION_TTL = 55 * 60 * 1000;
+// Uses Metabase public CSV — no login required, no rate limiting
+const METABASE_CSV_URL = process.env.METABASE_CSV_URL ||
+  'https://metabase.spyne.ai/public/question/777eeac8-7d6f-49f9-96d4-499cdea1b891.csv';
 
-let _cache = null, _lastFetch = 0, _session = null, _sessionTime = 0;
-const FORCE_COOLDOWN = 60 * 1000; // 1 min between force refreshes
-let _lastForce = 0;
+const CACHE_TTL = 15 * 60 * 1000;
+
+let _cache = null, _lastFetch = 0;
+
+function parseLine(line) {
+  const fields = []; let cur = '', inQ = false, i = 0;
+  while (i < line.length) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i+1] === '"') { cur += '"'; i += 2; }
+      else if (c === '"') { inQ = false; i++; }
+      else { cur += c; i++; }
+    } else {
+      if (c === '"') { inQ = true; i++; }
+      else if (c === ',') { fields.push(cur.trim()); cur = ''; i++; }
+      else { cur += c; i++; }
+    }
+  }
+  fields.push(cur.trim()); return fields;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = parseLine(lines[0]);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = parseLine(line); const obj = {};
+    headers.forEach((h, j) => { obj[h] = (vals[j] ?? '').trim(); }); return obj;
+  });
+}
 
 const pick = (row, ...keys) => {
   for (const key of keys) {
-    const value = row?.[key];
-    if (value !== null && value !== undefined && String(value).trim() !== '') return String(value).trim();
+    const v = row?.[key];
+    if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
   }
   return '';
 };
 
-const parseDate = value => {
-  if (!value) return '';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
+const parseDate = v => {
+  if (!v) return '';
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? String(v) : d.toISOString();
 };
 
-async function getSession(username, password) {
-  if (_session && Date.now() - _sessionTime < SESSION_TTL) return _session;
-  const r = await fetch(`${METABASE_URL}/api/session`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  if (!r.ok) { const t = await r.text(); throw new Error(`Login failed (${r.status}): ${t.slice(0,200)}`); }
-  const { id } = await r.json();
-  if (!id) throw new Error('No session id returned');
-  _session = id; _sessionTime = Date.now(); return _session;
-}
-
-async function buildCache(username, password) {
-  const sessionId = await getSession(username, password);
-
-  // Try /api/card/:id/query/json first (returns JSON array directly)
-  const query = await fetch(`${METABASE_URL}/api/card/${CARD_ID}/query/json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Metabase-Session': sessionId },
-    body: JSON.stringify({})
-  });
-
-  if (!query.ok) { const t = await query.text(); throw new Error(`Query failed (${query.status}): ${t.slice(0,300)}`); }
-
-  const rows = await query.json(); // returns array of objects directly
-
-  if (!Array.isArray(rows)) throw new Error('Unexpected response format: ' + JSON.stringify(rows).slice(0, 200));
-
-  const normalizedRows = rows.map(r => ({
-    sku:             pick(r, 'spin_sku_id', 'sku', 'sku_id', 'SKU ID'),
-    spinId:          pick(r, 'spin_id', 'spinId', 'ss.spin_id'),
-    vin:             pick(r, 'vinName', 'vin_name', 'vin', 'VIN'),
-    eid:             pick(r, 'enterpriseId', 'enterprise_id', 'Ent ID'),
-    entName:         pick(r, 'enterprise_name', 'enterpriseName', 'Enterprise', 'enterprise') || pick(r, 'enterpriseId', 'enterprise_id'),
-    teamId:          pick(r, 'teamId', 'team_id', 'Team ID'),
-    teamName:        pick(r, 'team_name', 'teamName', 'Team'),
-    customerSegment: pick(r, 'customer_segment', 'customerSegment', 'Segment'),
-    crmStatus:       pick(r, 'crm_status', 'crmStatus', 'CRM Status'),
-    assignedTeam:    pick(r, 'qc_user', 'assigned_user_name', 'assignedTeamName', 'QC User'),
+async function fetchFromMetabase() {
+  const r = await fetch(METABASE_CSV_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error(`CSV fetch failed (${r.status})`);
+  const rows = parseCSV(await r.text());
+  const normalized = rows.map(r => ({
+    sku:             pick(r, 'spin_sku_id', 'sku', 'sku_id'),
+    spinId:          pick(r, 'ss.spin_id', 'spin_id'),
+    vin:             pick(r, 'vinName', 'vin_name', 'vin'),
+    eid:             pick(r, 'enterpriseId', 'enterprise_id'),
+    entName:         pick(r, 'enterprise_name') || pick(r, 'enterpriseId'),
+    teamId:          pick(r, 'teamId', 'team_id'),
+    teamName:        pick(r, 'team_name', 'teamName'),
+    customerSegment: pick(r, 'customer_segment', 'customerSegment'),
+    crmStatus:       pick(r, 'crm_status', 'crmStatus'),
+    assignedTeam:    pick(r, 'qc_user', 'assigned_user_name'),
     entEmail:        pick(r, 'CS') || pick(r, 'OB'),
-    entStage:        pick(r, 'stage', 'Stage'),
-    finalStatus:     pick(r, 'final_status', 'finalStatus', 'status', 'Status'),
-    inputType:       pick(r, 'input_type', 'inputType', 'Input Type'),
-    platform:        pick(r, 'platform', 'Platform'),
-    make:            pick(r, 'make', 'Make'),
-    model:           pick(r, 'model', 'Model'),
-    year:            pick(r, 'year', 'Year'),
-    thumbnail:       pick(r, 'thumbnail_url', 'thumbnail', 'Thumbnail'),
-    vdpUrl:          pick(r, 'vdp_url', 'vdpUrl', 'VDP URL'),
-    imgCount:        Number(pick(r, 'image_count', 'imgCount', 'Image Count')) || 0,
-    overallScore:    pick(r, 'overall_score', 'overallScore'),
-    vinScore:        pick(r, 'vin_score', 'vinScore'),
-    createdAt:       parseDate(pick(r, 'createdAt', 'created_at', 'created_on', 'vinCreation', 'Created At')),
-    skuCreatedOn:    parseDate(pick(r, 'sku_created_on', 'skuCreatedOn', 'SKU Created On')),
-    firstQcDone:     pick(r, 'first_qc_done', 'firstQcDone', 'First QC Done'),
+    entStage:        pick(r, 'stage'),
+    finalStatus:     pick(r, 'status', 'final_status'),
+    inputType:       pick(r, 'input_type', 'inputType'),
+    createdAt:       parseDate(pick(r, 'createdAt', 'created_at', 'created_on')),
+    skuCreatedOn:    parseDate(pick(r, 'sku_created_on', 'skuCreatedOn')),
+    firstQcDone:     pick(r, 'first_qc_done', 'firstQcDone'),
   }));
-
-  _cache = { rows: normalizedRows, lastSynced: new Date().toISOString() };
+  _cache = { rows: normalized, lastSynced: new Date().toISOString() };
   _lastFetch = Date.now();
   return _cache;
 }
@@ -88,25 +80,23 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
-  const username = process.env.METABASE_EMAIL;
-  const password = process.env.METABASE_PASSWORD;
-  if (!username || !password) return res.status(500).json({ error: 'Metabase credentials not configured.' });
+
   try {
     const force = req.query.force === '1';
     const auto  = req.query.auto  === '1';
-    if (force) {
-      const timeSinceLastForce = Date.now() - _lastForce;
-      if (timeSinceLastForce < FORCE_COOLDOWN) {
-        const waitSec = Math.ceil((FORCE_COOLDOWN - timeSinceLastForce) / 1000);
-        if (_cache) return res.status(200).json({ ..._cache, rateLimited: true, retryAfter: waitSec });
-        return res.status(429).json({ error: `Force refresh rate limited. Try again in ${waitSec}s.`, retryAfter: waitSec });
-      }
-      _lastForce = Date.now();
-      _cache = null; _lastFetch = 0;
-    }
+
+    // force=1 — manual refresh, bust cache
+    if (force) { _cache = null; _lastFetch = 0; }
+
+    // auto=1 — auto refresh every 60s, bust cache
     if (auto) { _cache = null; _lastFetch = 0; }
-    if (_cache && !force && !auto && Date.now() - _lastFetch < CACHE_TTL) return res.status(200).json(_cache);
-    const data = await buildCache(username, password);
+
+    // Normal fetch — serve cache if < 15 min
+    if (_cache && !force && !auto && Date.now() - _lastFetch < CACHE_TTL) {
+      return res.status(200).json(_cache);
+    }
+
+    const data = await fetchFromMetabase();
     return res.status(200).json(data);
   } catch (err) {
     console.error('360 pendency error:', err);
